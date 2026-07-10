@@ -5,22 +5,24 @@ export default {
   theme: {
     extend: {
       colors: {
-        obsidian: "#08100f",
-        ink: "#0f1717",
-        pearl: "#f7f3ea",
-        dune: "#d8c58a",
-        palm: "#5dd39e",
-        lagoon: "#46c7d4",
-        coral: "#ff7d6e",
-        asphalt: "#263231"
+        obsidian: "#02040A",
+        ink: "#070D18",
+        pearl: "#EEF4FC",
+        dune: "#E7C688",
+        palm: "#E7C688",
+        lagoon: "#89C7FF",
+        coral: "#D99B4E",
+        adscblue: "#0B1320",
+        adscviolet: "#6C7C93",
+        asphalt: "#111C2C"
       },
       fontFamily: {
-        display: ["Inter", "ui-sans-serif", "system-ui"],
-        body: ["Inter", "ui-sans-serif", "system-ui"]
+        display: ["Sora", "Inter", "ui-sans-serif", "system-ui"],
+        body: ["Inter", "Sora", "ui-sans-serif", "system-ui"]
       },
       boxShadow: {
-        glow: "0 0 48px rgba(93, 211, 158, 0.24)",
-        panel: "0 24px 80px rgba(0, 0, 0, 0.24)"
+        glow: "0 0 42px rgba(231, 198, 136, 0.26), 0 0 24px rgba(137, 199, 255, 0.14)",
+        panel: "0 30px 90px rgba(0, 0, 0, 0.34)"
       }
     }
   },

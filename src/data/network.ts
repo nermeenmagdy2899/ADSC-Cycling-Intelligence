@@ -118,7 +118,7 @@ export const networkRoutes: NetworkRoute[] = [
     contractor: "Gulf Contracting & Landscape / Hilalco",
     packageName: "Package 1 & 2",
     forecast: "Feb 2026",
-    color: "#5dd39e",
+    color: "#56d6bd",
     designSpeed: "20 kph",
     users: ["Recreational", "Explorer", "Utility", "Sports"],
     description: "Nineteen Abu Dhabi Island streets supporting commuting, recreation, sport, bikes, and scooters.",
@@ -143,7 +143,7 @@ export const networkRoutes: NetworkRoute[] = [
     contractor: "Western Bainoona Group",
     packageName: "Package 3 & 4",
     forecast: "Mar 2027",
-    color: "#46c7d4",
+    color: "#89c7ff",
     designSpeed: "20 kph",
     users: ["Recreational", "Explorer", "Utility", "Sports"],
     description: "Fourteen additional island streets extending at-grade network coverage and local access.",
@@ -168,7 +168,7 @@ export const networkRoutes: NetworkRoute[] = [
     contractor: "Western Bainoona Group",
     packageName: "Section A",
     forecast: "Mar 2027",
-    color: "#ff7d6e",
+    color: "#d99b4e",
     designSpeed: "20-40 kph",
     users: ["Recreational", "Utility", "Sports"],
     structures: "6 bridges, 1 underpass, 3 culverts, 3 utility bridges",
@@ -193,7 +193,7 @@ export const networkRoutes: NetworkRoute[] = [
     contractor: "Western Bainoona Group / Zutari",
     packageName: "Section B",
     forecast: "Mar 2028",
-    color: "#d8c58a",
+    color: "#e7c688",
     designSpeed: "20-40 kph",
     users: ["Recreational", "Utility", "Sports"],
     structures: "Base and optional bridges linking Yas, Fahid, Jubail, Saadiyat, and Sheikh Khalifa Bridge",
@@ -218,7 +218,7 @@ export const networkRoutes: NetworkRoute[] = [
     contractor: "GCC Landscape",
     packageName: "Part 1",
     forecast: "Apr 2026",
-    color: "#8fe388",
+    color: "#9aa775",
     designSpeed: "20-40 kph",
     users: ["Utility", "Sports"],
     structures: "1 bridge complete, 2 nodes in progress",
@@ -244,7 +244,7 @@ export const networkRoutes: NetworkRoute[] = [
     contractor: "GCC Landscape",
     packageName: "Part 2",
     forecast: "Apr 2026",
-    color: "#b6a1ff",
+    color: "#93a1cf",
     designSpeed: "20-40 kph",
     users: ["Utility", "Sports"],
     structures: "4 bridges and 1 underpass complete",
@@ -269,7 +269,7 @@ export const networkRoutes: NetworkRoute[] = [
     contractor: "TBD - under design",
     packageName: "High-Speed Loop",
     forecast: "Apr 2029",
-    color: "#ffffff",
+    color: "#f7e2b0",
     designSpeed: "40 kph",
     users: ["Sports"],
     structures: "7 m clear cycling track, 14 access ramps, 2 stair/lift access points",
@@ -288,6 +288,16 @@ export const networkRoutes: NetworkRoute[] = [
     ]
   }
 ];
+
+// Programme-level figures from the December 2025 progress highlight slide.
+// NOTE: confirm exact budget figures against the source deck before publishing.
+export const programme = {
+  currency: "AED",
+  approvedBudgetBn: 1.7,
+  neededBudgetBn: 4,
+  hsctDesignPct: 90,
+  uciBikeCityYear: 2021
+};
 
 export const milestones = [
   { date: "Nov 2021", title: "Active Recreation and Cycling Strategy", copy: "DMT strategy defines the long-term active mobility vision." },

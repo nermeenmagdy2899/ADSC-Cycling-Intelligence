@@ -20,7 +20,7 @@
         "contractor": "Gulf Contracting & Landscape / Hilalco",
         "packageName": "Package 1 & 2",
         "forecast": "Feb 2026",
-        "color": "#5dd39e"
+        "color": "#56d6bd"
       },
       "geometry": {
         "type": "LineString",
@@ -41,7 +41,7 @@
         "contractor": "Western Bainoona Group",
         "packageName": "Package 3 & 4",
         "forecast": "Mar 2027",
-        "color": "#46c7d4"
+        "color": "#89c7ff"
       },
       "geometry": {
         "type": "LineString",
@@ -62,7 +62,7 @@
         "contractor": "Western Bainoona Group",
         "packageName": "Section A",
         "forecast": "Mar 2027",
-        "color": "#ff7d6e"
+        "color": "#d99b4e"
       },
       "geometry": {
         "type": "LineString",
@@ -83,7 +83,7 @@
         "contractor": "Western Bainoona Group / Zutari",
         "packageName": "Section B",
         "forecast": "Mar 2028",
-        "color": "#d8c58a"
+        "color": "#e7c688"
       },
       "geometry": {
         "type": "LineString",
@@ -104,7 +104,7 @@
         "contractor": "GCC Landscape",
         "packageName": "Part 1",
         "forecast": "Apr 2026",
-        "color": "#8fe388"
+        "color": "#9aa775"
       },
       "geometry": {
         "type": "LineString",
@@ -125,7 +125,7 @@
         "contractor": "GCC Landscape",
         "packageName": "Part 2",
         "forecast": "Apr 2026",
-        "color": "#b6a1ff"
+        "color": "#93a1cf"
       },
       "geometry": {
         "type": "LineString",
@@ -146,7 +146,7 @@
         "contractor": "TBD - under design",
         "packageName": "High-Speed Loop",
         "forecast": "Apr 2029",
-        "color": "#ffffff"
+        "color": "#f7e2b0"
       },
       "geometry": {
         "type": "LineString",

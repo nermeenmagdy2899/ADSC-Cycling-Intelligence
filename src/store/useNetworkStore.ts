@@ -6,13 +6,19 @@ type Locale = "en" | "ar";
 
 type NetworkState = {
   selectedRouteId: string;
+  soloRouteId: string | null;
   visibleTypes: RouteType[];
   playback: "playing" | "paused";
   speed: number;
   theme: Theme;
   locale: Locale;
   query: string;
+  presenter: boolean;
+  tour: boolean;
+  setPresenter: (presenter: boolean) => void;
+  setTour: (tour: boolean) => void;
   setSelectedRouteId: (id: string) => void;
+  setSoloRouteId: (id: string | null) => void;
   toggleType: (type: RouteType) => void;
   setVisibleTypes: (types: RouteType[]) => void;
   setPlayback: (playback: "playing" | "paused") => void;
@@ -24,13 +30,19 @@ type NetworkState = {
 
 export const useNetworkStore = create<NetworkState>((set) => ({
   selectedRouteId: "track-1-p12",
+  soloRouteId: null,
   visibleTypes: ["type-01", "type-02", "type-03", "hsct"],
   playback: "playing",
   speed: 1,
   theme: "dark",
   locale: "en",
   query: "",
+  presenter: false,
+  tour: false,
+  setPresenter: (presenter) => set({ presenter }),
+  setTour: (tour) => set({ tour }),
   setSelectedRouteId: (id) => set({ selectedRouteId: id }),
+  setSoloRouteId: (id) => set({ soloRouteId: id }),
   setVisibleTypes: (types) => set({ visibleTypes: types }),
   toggleType: (type) =>
     set((state) => ({

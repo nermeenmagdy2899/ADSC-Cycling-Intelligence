@@ -11,9 +11,11 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronRight,
+  CircleUserRound,
   Download,
   FileText,
   Layers,
+  Languages,
   Map,
   MapPinned,
   Moon,
@@ -26,6 +28,11 @@ import {
 import { LengthChart, ProgressChart } from "./components/Charts";
 import { MetricCard } from "./components/MetricCard";
 import { NetworkMap } from "./components/NetworkMap";
+import { StoryExperience } from "./components/StoryExperience";
+import { AmbientBackground } from "./components/AmbientBackground";
+import { ProjectAssistant } from "./components/ProjectAssistant";
+import { EvidenceSource } from "./components/EvidenceSource";
+import { Preloader } from "./components/Preloader";
 import {
   dashboardIcons,
   designPrinciples,
@@ -42,7 +49,7 @@ import { useNetworkStore } from "./store/useNetworkStore";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const nav = ["Overview", "Vision", "Design", "Users", "Network", "Routes", "Dashboard", "Analytics", "Timeline", "Gallery", "Documents"];
+const nav = ["Story"];
 const routeTypeOrder: RouteType[] = ["type-01", "type-02", "type-03", "hsct"];
 const routeTypeDetails: Record<RouteType, { title: string; purpose: string; characteristics: string[]; users: string[]; visual: "urban" | "connector" | "mainland" | "loop" }> = {
   "type-01": {
@@ -75,24 +82,25 @@ const routeTypeDetails: Record<RouteType, { title: string; purpose: string; char
   }
 };
 const navAr: Record<string, string> = {
-  Overview: "نظرة عامة",
-  Vision: "الرؤية",
-  Design: "مبادئ التصميم",
-  Users: "المستخدمون",
-  Network: "الشبكة",
-  Routes: "أنواع المسارات",
-  Dashboard: "لوحة المتابعة",
-  Analytics: "التحليلات",
-  Timeline: "الجدول الزمني",
-  Gallery: "المعرض",
-  Documents: "المستندات"
+  Story: "\u0627\u0644\u0642\u0635\u0629",
+  Overview: "\u0646\u0638\u0631\u0629 \u0639\u0627\u0645\u0629",
+  Vision: "\u0627\u0644\u0631\u0624\u064a\u0629",
+  Design: "\u0645\u0628\u0627\u062f\u0626 \u0627\u0644\u062a\u0635\u0645\u064a\u0645",
+  Users: "\u0627\u0644\u0645\u0633\u062a\u062e\u062f\u0645\u0648\u0646",
+  Network: "\u0627\u0644\u0634\u0628\u0643\u0629",
+  Routes: "\u0623\u0646\u0648\u0627\u0639 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062a",
+  Dashboard: "\u0644\u0648\u062d\u0629 \u0627\u0644\u0645\u062a\u0627\u0628\u0639\u0629",
+  Analytics: "\u0627\u0644\u062a\u062d\u0644\u064a\u0644\u0627\u062a",
+  Timeline: "\u0627\u0644\u062c\u062f\u0648\u0644 \u0627\u0644\u0632\u0645\u0646\u064a",
+  Gallery: "\u0627\u0644\u0645\u0639\u0631\u0636",
+  Documents: "\u0627\u0644\u0645\u0633\u062a\u0646\u062f\u0627\u062a"
 };
 
 const copy = {
   en: {
-    heroEyebrow: "Premium interactive project experience",
+    heroEyebrow: "Abu Dhabi Sports Council",
     heroTitle: "Abu Dhabi Cycling Network",
-    heroText: "A cinematic GIS and dashboard experience for the city's cycling vision, route design, construction progress, and executive KPIs.",
+    heroText: "Route alignments, cycling typologies, construction progress, and forecast milestones in one executive spatial story.",
     heroCta: "Explore the Network",
     overviewTitle: "From city-scale vision to delivery intelligence.",
     overviewText: "Built from the 2022 Basis of Design and the December 2025 Progress Status deck, this experience translates static reports into a living project room.",
@@ -102,23 +110,24 @@ const copy = {
     language: "AR"
   },
   ar: {
-    heroEyebrow: "تجربة رقمية تفاعلية للمشروع",
-    heroTitle: "شبكة أبوظبي للدراجات",
-    heroText: "تجربة خرائط ولوحات متابعة تعرض رؤية شبكة الدراجات، تصميم المسارات، تقدم الإنشاء، ومؤشرات الأداء التنفيذية.",
-    heroCta: "استكشف الشبكة",
-    overviewTitle: "من رؤية المدينة إلى ذكاء متابعة التنفيذ.",
-    overviewText: "تعتمد هذه التجربة على تقرير أساس التصميم 2022 وعرض حالة التقدم في ديسمبر 2025 لتحويل التقارير الثابتة إلى غرفة مشروع تفاعلية.",
-    networkTitle: "محاور المسارات ضمن شبكة أبوظبي للدراجات",
-    galleryTitle: "صور فعلية من التقارير للتصميم والإنشاء والتقدم.",
-    documentsTitle: "تظل ملفات PDF الأصلية قابلة للبحث والفتح والتنزيل كمراجع مصدرية.",
+    heroEyebrow: "\u0645\u062c\u0644\u0633 \u0623\u0628\u0648\u0638\u0628\u064a \u0627\u0644\u0631\u064a\u0627\u0636\u064a",
+    heroTitle: "\u0634\u0628\u0643\u0629 \u0623\u0628\u0648\u0638\u0628\u064a \u0644\u0644\u062f\u0631\u0627\u062c\u0627\u062a",
+    heroText: "\u0642\u0635\u0629 \u0645\u0643\u0627\u0646\u064a\u0629 \u062a\u0646\u0641\u064a\u0630\u064a\u0629 \u0644\u0634\u0628\u0643\u0629 \u0627\u0644\u062f\u0631\u0627\u062c\u0627\u062a \u0648\u062a\u0642\u062f\u0645 \u0627\u0644\u0625\u0646\u0634\u0627\u0621 \u0648\u0627\u0644\u0645\u0639\u0627\u0644\u0645 \u0627\u0644\u0645\u0633\u062a\u0642\u0628\u0644\u064a\u0629.",
+    heroCta: "\u0627\u0633\u062a\u0643\u0634\u0641 \u0627\u0644\u0634\u0628\u0643\u0629",
+    overviewTitle: "\u0645\u0646 \u0631\u0624\u064a\u0629 \u0627\u0644\u0645\u062f\u064a\u0646\u0629 \u0625\u0644\u0649 \u0645\u062a\u0627\u0628\u0639\u0629 \u0627\u0644\u062a\u0646\u0641\u064a\u0630.",
+    overviewText: "\u062a\u062c\u0631\u0628\u0629 \u062a\u0641\u0627\u0639\u0644\u064a\u0629 \u0645\u0628\u0646\u064a\u0629 \u0639\u0644\u0649 \u062a\u0642\u0627\u0631\u064a\u0631 \u0627\u0644\u0645\u0634\u0631\u0648\u0639.",
+    networkTitle: "\u0645\u062d\u0627\u0648\u0631 \u0627\u0644\u0645\u0633\u0627\u0631\u0627\u062a \u0636\u0645\u0646 \u0634\u0628\u0643\u0629 \u0623\u0628\u0648\u0638\u0628\u064a \u0644\u0644\u062f\u0631\u0627\u062c\u0627\u062a",
+    galleryTitle: "\u0635\u0648\u0631 \u0645\u0646 \u062a\u0642\u0627\u0631\u064a\u0631 \u0627\u0644\u0645\u0634\u0631\u0648\u0639",
+    documentsTitle: "\u0627\u0644\u0645\u0633\u062a\u0646\u062f\u0627\u062a \u0627\u0644\u0623\u0635\u0644\u064a\u0629 \u0644\u0644\u0645\u0634\u0631\u0648\u0639",
     language: "EN"
   }
 };
 
 export default function App() {
-  const { theme, setTheme, query, setQuery, locale, setLocale, visibleTypes, setVisibleTypes, setSelectedRouteId, setPlayback } = useNetworkStore();
+  const { theme, setTheme, query, setQuery, locale, setLocale, visibleTypes, setVisibleTypes, setSelectedRouteId, setPlayback, presenter, setPresenter } = useNetworkStore();
   const [activePersona, setActivePersona] = useState(personas[0].name);
   const [galleryFilter, setGalleryFilter] = useState("All");
+  const [booting, setBooting] = useState(true);
   const t = copy[locale];
 
   const totals = useMemo(() => {
@@ -137,6 +146,37 @@ export default function App() {
     document.documentElement.lang = locale;
     document.documentElement.dir = locale === "ar" ? "rtl" : "ltr";
   }, [locale, theme]);
+
+  // Presenter mode = true fullscreen presentation where the browser allows it.
+  // Only a *user-initiated* exit from an engaged fullscreen (Esc / browser chrome,
+  // at least ~1s after entering) leaves presenter mode; a denied or instantly
+  // dropped fullscreen keeps presenter styling active.
+  const fullscreenEngagedAt = useRef(0);
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (document.fullscreenElement) {
+        fullscreenEngagedAt.current = performance.now();
+      } else if (fullscreenEngagedAt.current && performance.now() - fullscreenEngagedAt.current > 1000) {
+        fullscreenEngagedAt.current = 0;
+        setPresenter(false);
+      } else {
+        fullscreenEngagedAt.current = 0;
+      }
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, [setPresenter]);
+
+  useEffect(() => {
+    if (presenter) {
+      document.documentElement.requestFullscreen?.().catch(() => {
+        /* fullscreen can be denied (iframe/no gesture) — presenter styling still applies */
+      });
+      document.getElementById("story")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, [presenter]);
 
   useEffect(() => {
     const lenis = new Lenis({ smoothWheel: true, lerp: 0.08 });
@@ -182,10 +222,30 @@ export default function App() {
   };
 
   return (
-    <main className="min-h-screen bg-pearl text-ink transition-colors dark:bg-obsidian dark:text-pearl">
-      <Header locale={locale} languageLabel={t.language} theme={theme} toggleLanguage={() => setLocale(locale === "en" ? "ar" : "en")} toggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")} />
-      <Hero t={t} />
+    <main className={`app-shell min-h-screen ${presenter ? "is-presenter" : ""}`} data-design="lumen">
+      {booting ? <Preloader onDone={() => setBooting(false)} /> : null}
+      {presenter ? (
+        <div className="presenter-bar" role="status">
+          <span className="presenter-dot" />
+          <strong>{locale === "ar" ? "وضع العرض" : "Presenter mode"}</strong>
+          <small>{locale === "ar" ? "الأسهم للتنقل · مسافة للجولة · Esc للخروج" : "Arrows to navigate · Space to fly · Esc to exit"}</small>
+          <button onClick={() => setPresenter(false)}>{locale === "ar" ? "خروج" : "Exit"}</button>
+        </div>
+      ) : null}
+      <AmbientBackground />
+      <Hero
+        languageLabel={t.language}
+        t={t}
+        theme={theme}
+        toggleLanguage={() => setLocale(locale === "en" ? "ar" : "en")}
+        toggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+      />
+      <StoryExperience />
+      <EvidenceSource />
+      <ProjectAssistant />
 
+      {false && (
+      <div className="hidden" aria-hidden="true">
       <section id="overview" className="section">
         <div className="section-heading reveal">
           <p className="eyebrow">Overview</p>
@@ -334,7 +394,7 @@ export default function App() {
                     </div>
                     <Route className="h-6 w-6 text-palm" />
                   </div>
-                  <RouteTypeVisual color={routes[0]?.color ?? "#5dd39e"} variant={detail.visual} />
+                  <RouteTypeVisual color={routes[0]?.color ?? "#c8a65a"} variant={detail.visual} />
                   <p className="mt-4 text-sm leading-6 opacity-70">{detail.purpose}</p>
                   <p className="mt-3 text-xs leading-5 opacity-55">{routeTypeCopy[type]}</p>
                 </button>
@@ -489,6 +549,8 @@ export default function App() {
       </section>
 
       <AIPanel />
+      </div>
+      )}
     </main>
   );
 }
@@ -507,11 +569,11 @@ function Header({
   toggleTheme: () => void;
 }) {
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 border-b border-white/10 bg-obsidian/75 px-4 py-3 text-pearl backdrop-blur-xl">
+    <header className="app-header fixed left-0 right-0 top-0 z-50 px-4 py-3">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-        <a href="#hero" className="flex items-center gap-2 font-semibold">
-          <Bike className="h-5 w-5 text-palm" />
-          ADCN
+        <a href="#hero" className="adsc-brand" aria-label="Abu Dhabi Sports Council Cycling Network">
+          <img src="/images/adsc-logo.svg" alt="Abu Dhabi Sports Council" />
+          <span className="sr-only">Abu Dhabi Sports Council</span>
         </a>
         <nav className="hidden items-center gap-1 lg:flex">
           {nav.map((item) => (
@@ -533,17 +595,57 @@ function Header({
   );
 }
 
-function Hero({ t }: { t: (typeof copy)["en"] }) {
+function Hero({
+  languageLabel,
+  t,
+  theme,
+  toggleLanguage,
+  toggleTheme
+}: {
+  languageLabel: string;
+  t: (typeof copy)["en"];
+  theme: string;
+  toggleLanguage: () => void;
+  toggleTheme: () => void;
+}) {
   const sectionRef = useRef<HTMLElement | null>(null);
+  const [accessibilityOpen, setAccessibilityOpen] = useState(false);
   return (
     <section id="hero" ref={sectionRef} className="hero">
       <div className="hero-map-grid" />
+      <div className="hero-hover-field" aria-hidden="true">
+        {Array.from({ length: 9 }).map((_, index) => (
+          <span key={index} style={{ ["--i" as string]: index }} />
+        ))}
+      </div>
+      <div className="accessibility-menu">
+        <button
+          className="accessibility-trigger"
+          aria-expanded={accessibilityOpen}
+          aria-label="Display options"
+          onClick={() => setAccessibilityOpen((value) => !value)}
+        >
+          <CircleUserRound className="h-6 w-6" />
+        </button>
+        {accessibilityOpen ? (
+          <div className="accessibility-popover">
+            <button aria-label="Toggle language" onClick={toggleLanguage}>
+              <Languages className="h-4 w-4" />
+              <span>{languageLabel}</span>
+            </button>
+            <button aria-label="Toggle theme" onClick={toggleTheme}>
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              <span>{theme === "dark" ? "Light" : "Dark"}</span>
+            </button>
+          </div>
+        ) : null}
+      </div>
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1440 900" preserveAspectRatio="none" aria-hidden="true">
         <path
           className="hero-line"
           d="M-40 620 C 170 530, 250 705, 410 580 S 640 330, 820 420 S 1030 700, 1190 520 S 1390 300, 1490 380"
           fill="none"
-          stroke="#5dd39e"
+          stroke="#c8a65a"
           strokeWidth="7"
           strokeLinecap="round"
           strokeDasharray="1600"
@@ -557,7 +659,8 @@ function Hero({ t }: { t: (typeof copy)["en"] }) {
         </span>
         <span className="hero-bike-label">Ride the network</span>
       </button>
-      <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col justify-end px-6 pb-24 pt-28 md:px-10">
+      <div className="hero-content relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col justify-center px-6 pb-16 pt-20 md:px-10">
+        <motion.img className="hero-brand-mark" src="/images/adsc-logo.svg" alt="Abu Dhabi Sports Council" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} />
         <motion.p className="eyebrow" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           {t.heroEyebrow}
         </motion.p>
@@ -567,7 +670,7 @@ function Hero({ t }: { t: (typeof copy)["en"] }) {
         <motion.p className="mt-7 max-w-2xl text-xl leading-8 text-white/70" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           {t.heroText}
         </motion.p>
-        <motion.a className="button mt-9 w-fit" href="#network" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <motion.a className="button mt-9 w-fit" href="#story-network" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           {t.heroCta} <Map className="h-4 w-4" />
         </motion.a>
       </div>
@@ -606,7 +709,7 @@ function RouteTypeVisual({
         <defs>
           <linearGradient id={`route-glow-${variant}`} x1="0%" x2="100%" y1="0%" y2="100%">
             <stop offset="0%" stopColor={color} stopOpacity="0.85" />
-            <stop offset="100%" stopColor="#5dd39e" stopOpacity="0.2" />
+            <stop offset="100%" stopColor="#c8a65a" stopOpacity="0.2" />
           </linearGradient>
         </defs>
         <path d="M24 132 C72 104 112 116 148 92 S228 48 336 42" fill="none" stroke="currentColor" strokeOpacity="0.08" strokeWidth="22" strokeLinecap="round" />
