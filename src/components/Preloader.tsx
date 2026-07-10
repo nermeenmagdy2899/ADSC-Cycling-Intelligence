@@ -28,7 +28,7 @@ export function Preloader({ onDone }: { onDone: () => void }) {
     const start = performance.now();
     let raf = 0;
     const tick = (now: number) => {
-      const p = Math.min(100, ((now - start) / total) * 100);
+      const p = Math.min(100, Math.max(0, ((now - start) / total) * 100));
       setProgress(p);
       if (p < 100) raf = requestAnimationFrame(tick);
       else finish();

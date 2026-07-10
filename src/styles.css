@@ -51,6 +51,10 @@
   --dur-base: 320ms;
   --dur-slow: 560ms;
   --dur-cinematic: 1200ms;
+  --card-pad: 24px;
+  --card-radius: 12px;
+  --card-gap: 16px;
+  --card-icon-size: 20px;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color-scheme: light;
   scroll-behavior: auto;
@@ -171,6 +175,7 @@ input:focus-visible {
   }
 
   .app-header {
+    min-height: 76px;
     border-bottom: 1px solid var(--glass-border);
     background:
       linear-gradient(135deg, rgba(var(--gold-rgb), 0.1), rgba(137, 199, 255, 0.04)),
@@ -235,6 +240,10 @@ input:focus-visible {
     width: clamp(170px, 16vw, 242px);
     height: auto;
     filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.28));
+  }
+
+  .app-header .display-controls {
+    position: static;
   }
 
   .adsc-brand span {
@@ -395,18 +404,11 @@ input:focus-visible {
   }
 
   .display-controls {
-    position: fixed;
-    right: 22px;
-    top: 22px;
+    position: static;
     z-index: 70;
     display: flex;
     align-items: center;
     gap: 10px;
-  }
-
-  :root:lang(ar) .display-controls {
-    right: auto;
-    left: 22px;
   }
 
   .display-control {
@@ -568,14 +570,9 @@ input:focus-visible {
       margin-bottom: 20px;
     }
 
-    .display-controls {
-      right: 18px;
-      top: 18px;
-    }
-
-    :root:lang(ar) .display-controls {
-      right: auto;
-      left: 18px;
+    .display-control {
+      min-width: 48px;
+      padding-inline: 12px;
     }
   }
 
@@ -612,6 +609,7 @@ input:focus-visible {
 
   .story-shell {
     @apply relative px-4 py-6 md:px-6 lg:px-8;
+    scroll-margin-top: 88px;
     background: var(--story-bg);
     color: var(--story-fg);
   }
@@ -629,12 +627,56 @@ input:focus-visible {
     background-size: auto, auto, 72px 72px, 72px 72px;
   }
 
+  .story-top-chrome {
+    @apply relative z-20 mx-auto max-w-[1640px];
+  }
+
+  .story-primary-heading {
+    @apply flex flex-wrap items-end justify-between gap-4 rounded-md p-5 md:p-6;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface-strong);
+    box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(22px) saturate(155%);
+    -webkit-backdrop-filter: blur(22px) saturate(155%);
+  }
+
+  .story-primary-heading .eyebrow {
+    flex-basis: 100%;
+  }
+
+  .story-primary-heading h1 {
+    max-width: 1100px;
+    font-family: Sora, Inter, ui-sans-serif, system-ui;
+    font-size: clamp(2rem, 4vw, 4.75rem);
+    font-weight: 650;
+    line-height: 1.02;
+    letter-spacing: 0;
+    color: var(--story-fg);
+  }
+
   .story-kpi-bar {
-    @apply sticky top-[65px] z-30 mx-auto grid max-w-[1640px] gap-3 rounded-md p-3 md:grid-cols-4;
+    @apply z-30 grid rounded-md p-3;
+    top: 92px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    gap: var(--card-gap);
   }
 
   .story-kpi {
-    @apply flex items-center gap-3 rounded-md px-4 py-3;
+    @apply flex items-start gap-3;
+    min-height: 116px;
+    border-radius: var(--card-radius);
+    padding: 18px;
+  }
+
+  .story-kpi > svg {
+    flex: 0 0 var(--card-icon-size);
+    width: var(--card-icon-size);
+    height: var(--card-icon-size);
+  }
+
+  .story-kpi > div {
+    min-width: 0;
   }
 
   .story-kpi span {
@@ -643,12 +685,20 @@ input:focus-visible {
   }
 
   .story-kpi strong {
-    @apply mt-1 block text-xl font-semibold;
+    @apply mt-1 block text-2xl font-semibold;
+    font-variant-numeric: tabular-nums;
     color: var(--story-fg);
   }
 
+  .story-kpi-note {
+    @apply mt-2 block not-italic;
+    color: var(--fg-muted);
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
   .story-layout {
-    @apply relative z-10 mx-auto mt-5 grid max-w-[1640px] gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(420px,0.75fr)];
+    @apply relative z-10 mx-auto mt-5 grid max-w-[1640px] gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(420px,0.68fr)];
   }
 
   .story-map-column {
@@ -661,22 +711,17 @@ input:focus-visible {
     @apply min-h-[360px] xl:h-[min(44vh,520px)];
   }
 
-  .story-map-header {
-    @apply mb-2 flex items-end justify-between gap-4 rounded-md border border-white/10 bg-white/5 p-3 backdrop-blur-xl;
-  }
-
-  .story-map-header h2 {
-    @apply mt-2 max-w-3xl text-2xl font-semibold leading-tight md:text-3xl;
-    font-family: Sora, Inter, ui-sans-serif, system-ui;
-    letter-spacing: 0;
-  }
-
-  .story-map-header > span {
-    @apply rounded-full border border-palm/30 bg-palm/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-palm;
+  .story-map-toolbar {
+    @apply mb-2 flex min-h-12 items-center justify-end rounded-md p-2;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface);
+    backdrop-filter: blur(18px) saturate(150%);
   }
 
   .story-chapter-nav {
-    @apply relative mb-2 flex gap-2 overflow-x-auto rounded-md border border-white/10 bg-white/5 p-2 backdrop-blur-xl;
+    @apply relative mt-3 flex gap-1 overflow-x-auto rounded-md p-1.5 backdrop-blur-xl;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface);
     scrollbar-width: thin;
     scrollbar-color: rgba(var(--gold-rgb), 0.55) rgba(255, 255, 255, 0.08);
   }
@@ -690,9 +735,10 @@ input:focus-visible {
   }
 
   .story-chapter-nav button {
-    @apply min-w-[150px] rounded-md px-2 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.1em] transition;
-    border: 1px solid var(--glass-border);
-    background: color-mix(in srgb, var(--glass-surface) 78%, transparent);
+    @apply min-w-[116px] rounded-md px-2.5 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.08em] transition;
+    min-height: 48px;
+    border: 1px solid transparent;
+    background: transparent;
     color: var(--fg-muted);
   }
 
@@ -705,6 +751,12 @@ input:focus-visible {
     background: rgba(var(--gold-rgb), 0.15);
     color: var(--fg);
     box-shadow: 0 0 20px rgba(var(--gold-rgb), 0.18);
+  }
+
+  .story-chapter-nav button:hover {
+    border-color: rgba(var(--gold-rgb), 0.36);
+    background: rgba(var(--gold-rgb), 0.08);
+    color: var(--fg);
   }
 
   .story-map-frame {
@@ -857,9 +909,37 @@ input:focus-visible {
   /* On phones the stacked KPI cards would pin over most of the viewport —
      keep the bar in flow and compact instead. */
   @media (max-width: 767px) {
+    :root {
+      --card-pad: 18px;
+      --card-gap: 10px;
+    }
+
     .story-kpi-bar {
       position: static;
       grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .story-kpi {
+      min-height: 96px;
+      padding: 12px;
+    }
+
+    .story-kpi-note {
+      display: none;
+    }
+
+    .story-primary-heading {
+      padding: 18px;
+    }
+
+    .story-primary-heading h1 {
+      font-size: clamp(1.9rem, 9vw, 3rem);
+    }
+
+    .story-primary-heading .story-camera-badge {
+      display: none;
     }
   }
 
@@ -879,8 +959,22 @@ input:focus-visible {
     @apply space-y-6 pb-24;
   }
 
+  .story-mini-card,
+  .story-persona-card,
+  .story-strategy-diagram div,
+  .story-route-type-list button,
+  .story-network-focus button,
+  .exec-kpi,
+  .exec-summary-strip div,
+  .exec-status-grid div,
+  .exec-milestone-grid div {
+    border-radius: var(--card-radius);
+  }
+
   .story-panel {
-    @apply rounded-md p-6 transition duration-300;
+    @apply transition duration-300;
+    border-radius: var(--card-radius);
+    padding: var(--card-pad);
     min-height: min(560px, 58vh);
     /* Clear the sticky KPI bar (top 65px + ~100px bar) on chapter jumps. */
     scroll-margin-top: 180px;

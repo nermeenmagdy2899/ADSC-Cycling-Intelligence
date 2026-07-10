@@ -36,7 +36,7 @@ export function CountUp({ value, decimals = 0, prefix = "", suffix = "", duratio
       animating = true;
       const start = performance.now();
       const tick = (now: number) => {
-        const progress = Math.min(1, (now - start) / duration);
+        const progress = Math.min(1, Math.max(0, (now - start) / duration));
         setDisplay(value * easeOutExpo(progress));
         if (progress < 1) raf = requestAnimationFrame(tick);
       };

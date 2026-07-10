@@ -319,22 +319,29 @@ export function StoryExperience() {
 
   return (
     <section id="story" className="story-shell">
-      <div className="story-kpi-bar">
-        <StoryKpi icon={Waypoints} label={c.plannedNetwork} value={totals.planned} decimals={1} suffix=" km" note={kpiNotes.planned} />
-        <StoryKpi icon={CheckCircle2} label={c.completed} value={totals.completed} decimals={1} suffix=" km" note={kpiNotes.completed} />
-        <StoryKpi icon={Timer} label={c.remaining} value={totals.remaining} decimals={1} suffix=" km" note={kpiNotes.remaining} />
-        <StoryKpi icon={BarChart3} label={c.completion} value={totals.percent} suffix="%" note={kpiNotes.completion} />
+      <div className="story-top-chrome">
+        <div className="story-primary-heading">
+          <p className="eyebrow">{c.liveSpatialStory}</p>
+          <h1>{storyText[locale].find((step) => step.id === "strategy")?.title}</h1>
+          <span className="story-camera-badge">{activeStep.camera}</span>
+        </div>
+        <div className="story-chapter-nav" aria-label={c.chapterNav} ref={navRef}>
+          <div className="story-progress-track">
+            <span style={{ width: `${progress}%` }} />
+          </div>
+          {localizedSteps.map((step, index) => (
+            <button className={step.id === activeStepId ? "is-active" : ""} key={step.id} onClick={() => jumpToStep(step)} aria-current={step.id === activeStepId ? "step" : undefined}>
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              {step.eyebrow}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="story-layout">
         <div className="story-map-column" ref={mapColumnRef}>
-          <div className="story-map-header">
-            <div>
-              <p className="eyebrow">{c.liveSpatialStory}</p>
-              <h2>{storyText[locale][3].title}</h2>
-            </div>
+          <div className="story-map-toolbar">
             <div className="story-map-controls">
-              <span className="story-camera-badge">{activeStep.camera}</span>
               <button className={`story-ctrl ${tour ? "is-active" : ""}`} onClick={() => setTour(!tour)} aria-pressed={tour}>
                 {tour ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                 {tour ? c.stopTour : c.flyNetwork}
@@ -344,17 +351,6 @@ export function StoryExperience() {
                 {c.presenterMode}
               </button>
             </div>
-          </div>
-          <div className="story-chapter-nav" aria-label={c.chapterNav} ref={navRef}>
-            <div className="story-progress-track">
-              <span style={{ width: `${progress}%` }} />
-            </div>
-            {localizedSteps.map((step, index) => (
-              <button className={step.id === activeStepId ? "is-active" : ""} key={step.id} onClick={() => jumpToStep(step)}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                {step.eyebrow}
-              </button>
-            ))}
           </div>
           <NetworkMap variant="story" />
           <div className="story-live-caption">
@@ -367,6 +363,12 @@ export function StoryExperience() {
         </div>
 
         <div className="story-content-column">
+          <div className="story-kpi-bar" aria-label={c.executiveView}>
+            <StoryKpi icon={Waypoints} label={c.plannedNetwork} value={totals.planned} decimals={1} suffix=" km" note={kpiNotes.planned} />
+            <StoryKpi icon={CheckCircle2} label={c.completed} value={totals.completed} decimals={1} suffix=" km" note={kpiNotes.completed} />
+            <StoryKpi icon={Timer} label={c.remaining} value={totals.remaining} decimals={1} suffix=" km" note={kpiNotes.remaining} />
+            <StoryKpi icon={BarChart3} label={c.completion} value={totals.percent} suffix="%" note={kpiNotes.completion} />
+          </div>
           {localizedSteps.map((step, index) => (
             <motion.article
               className={`story-panel ${activeStepId === step.id ? "is-active" : ""}`}
