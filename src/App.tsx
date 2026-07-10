@@ -649,7 +649,7 @@ function Hero({
         <motion.p className="hero-summary mt-7 max-w-2xl text-xl leading-8" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           {t.heroText}
         </motion.p>
-        <motion.a className="button mt-9 w-fit" href="#story-network" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <motion.a className="button mt-9 w-fit" href="#story" onClick={() => window.dispatchEvent(new CustomEvent("adcn:open-step", { detail: "network" }))} initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
           {t.heroCta} <Map className="h-4 w-4" />
         </motion.a>
       </div>

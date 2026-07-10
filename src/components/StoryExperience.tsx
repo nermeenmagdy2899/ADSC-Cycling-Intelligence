@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import { BarChart3, Bike, CalendarDays, CheckCircle2, Compass, FileText, Flag, Gauge, Heart, Landmark, MonitorPlay, Play, Route, Sparkles, Square, Timer, Trophy, Users, Waypoints } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { BarChart3, Bike, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Compass, FileText, Flag, Gauge, Heart, Landmark, MonitorPlay, Play, Route, Sparkles, Square, Timer, Trophy, Users, Waypoints } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { DeliveryCurve, LengthChart, ProgressChart } from "./Charts";
 import { CountUp } from "./CountUp";
@@ -162,11 +162,11 @@ const storySteps: StoryStep[] = [
 ];
 
 export function StoryExperience() {
-  const stepRefs = useRef<Record<string, HTMLElement | null>>({});
   const navRef = useRef<HTMLDivElement | null>(null);
   const mapColumnRef = useRef<HTMLDivElement | null>(null);
-  const scrollGuardRef = useRef(0);
   const [activeStepId, setActiveStepId] = useState(storySteps[0].id);
+  const [deckDirection, setDeckDirection] = useState(1);
+  const reduceMotion = useReducedMotion();
   const { selectedRouteId, setSelectedRouteId, setSoloRouteId, setVisibleTypes, setPlayback, locale, tour, setTour, presenter, setPresenter } = useNetworkStore();
   const c = uiCopy[locale];
   const localizedSteps = useMemo(
@@ -221,44 +221,24 @@ export function StoryExperience() {
     setPlayback("playing");
   };
 
-  const jumpToStep = (step: StoryStep) => {
+  const goToStep = (step: StoryStep) => {
     setTour(false);
+    const nextIndex = localizedSteps.findIndex((item) => item.id === step.id);
+    setDeckDirection(nextIndex >= activeIndex ? 1 : -1);
     activateStep(step);
-    // Suppress the scroll observer while the programmatic smooth-scroll runs,
-    // otherwise its re-created instance instantly reverts to the panel still
-    // under the viewport center and then walks through every intermediate step.
-    scrollGuardRef.current = performance.now() + 1500;
-    stepRefs.current[step.id]?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   useEffect(() => {
-    if (tour) return; // the cinematic tour owns the map while it runs
-    // Center-band activation: a panel becomes active when it crosses the middle
-    // strip of the viewport. Unlike ratio thresholds, this works for panels far
-    // taller than the viewport (the exec dashboard is ~3400px).
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (performance.now() < scrollGuardRef.current) return;
-        const candidates = entries.filter((entry) => entry.isIntersecting);
-        if (!candidates.length) return;
-        const mid = window.innerHeight / 2;
-        const best = candidates.sort((a, b) => {
-          const da = Math.abs(a.boundingClientRect.top + Math.min(a.boundingClientRect.height, window.innerHeight) / 2 - mid);
-          const db = Math.abs(b.boundingClientRect.top + Math.min(b.boundingClientRect.height, window.innerHeight) / 2 - mid);
-          return da - db;
-        })[0];
-        const step = localizedSteps.find((item) => item.id === best.target.getAttribute("data-story-step"));
-        if (step && step.id !== activeStepId) activateStep(step);
-      },
-      { root: null, rootMargin: "-40% 0px -40% 0px", threshold: 0 }
-    );
-    localizedSteps.forEach((step) => {
-      const node = stepRefs.current[step.id];
-      if (node) observer.observe(node);
-    });
-    return () => observer.disconnect();
+    const onOpenStep = (event: Event) => {
+      const requestedId = (event as CustomEvent<string>).detail;
+      const requestedStep = localizedSteps.find((step) => step.id === requestedId);
+      if (requestedStep) goToStep(requestedStep);
+    };
+    window.addEventListener("adcn:open-step", onOpenStep);
+    return () => window.removeEventListener("adcn:open-step", onOpenStep);
+    // localizedSteps changes only when the locale changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeStepId, localizedSteps, tour]);
+  }, [locale, activeIndex]);
 
   // Keep the active chapter chip in view inside the horizontal chapter nav.
   useEffect(() => {
@@ -299,7 +279,7 @@ export function StoryExperience() {
         const dir = event.key === "ArrowRight" ? 1 : -1;
         const idx = localizedSteps.findIndex((step) => step.id === activeStepId);
         const next = Math.min(localizedSteps.length - 1, Math.max(0, idx + dir));
-        jumpToStep(localizedSteps[next]);
+        goToStep(localizedSteps[next]);
       } else if (event.key === " " && (presenter || tour)) {
         // Space toggles the tour only in presenter mode (or stops a running tour);
         // otherwise it must keep its native page-scroll behavior.
@@ -317,6 +297,66 @@ export function StoryExperience() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStepId, localizedSteps, tour, presenter]);
 
+  const renderActivePreview = () => {
+    switch (activeStep.id) {
+      case "vision":
+        return <NetworkGlobe locale={locale} />;
+      case "value":
+        return <ValueBeat locale={locale} />;
+      case "principles":
+        return <PrinciplesPreview locale={locale} />;
+      case "users":
+        return <UserGroupPreview locale={locale} />;
+      case "strategy":
+        return <NetworkStrategyPreview locale={locale} />;
+      case "route-types":
+        return (
+          <RouteTypePreview
+            locale={locale}
+            onSelectType={(type) => {
+              const firstRoute = networkRoutes.find((route) => route.type === type);
+              setSoloRouteId(null);
+              setVisibleTypes([type]);
+              if (firstRoute) setSelectedRouteId(firstRoute.id);
+              setPlayback("playing");
+            }}
+          />
+        );
+      case "network":
+        return (
+          <NetworkFocusPreview
+            locale={locale}
+            onSelectRoute={(routeId, type) => {
+              setSelectedRouteId(routeId);
+              setSoloRouteId(routeId);
+              setVisibleTypes([type]);
+              setPlayback("playing");
+            }}
+          />
+        );
+      case "progress":
+        return <ExecutiveProgressDashboard locale={locale} />;
+      case "kpis":
+        return <ExecutiveInsights locale={locale} />;
+      case "future":
+        return (
+          <>
+            <ForecastTimeline key={`timeline-${activeStep.id}`} locale={locale} />
+            <MilestonePreview locale={locale} />
+            <CompletionInsights locale={locale} />
+          </>
+        );
+      case "ask":
+        return <TheAsk locale={locale} />;
+      default:
+        return null;
+    }
+  };
+
+  const physicalDirection = deckDirection * (locale === "ar" ? -1 : 1);
+  const previousStep = activeIndex > 0 ? localizedSteps[activeIndex - 1] : null;
+  const nextStep = activeIndex < localizedSteps.length - 1 ? localizedSteps[activeIndex + 1] : null;
+
   return (
     <section id="story" className="story-shell">
       <div className="story-top-chrome">
@@ -330,7 +370,7 @@ export function StoryExperience() {
             <span style={{ width: `${progress}%` }} />
           </div>
           {localizedSteps.map((step, index) => (
-            <button className={step.id === activeStepId ? "is-active" : ""} key={step.id} onClick={() => jumpToStep(step)} aria-current={step.id === activeStepId ? "step" : undefined}>
+              <button className={step.id === activeStepId ? "is-active" : ""} key={step.id} onClick={() => goToStep(step)} aria-current={step.id === activeStepId ? "step" : undefined}>
               <span>{String(index + 1).padStart(2, "0")}</span>
               {step.eyebrow}
             </button>
@@ -369,59 +409,69 @@ export function StoryExperience() {
             <StoryKpi icon={Timer} label={c.remaining} value={totals.remaining} decimals={1} suffix=" km" note={kpiNotes.remaining} />
             <StoryKpi icon={BarChart3} label={c.completion} value={totals.percent} suffix="%" note={kpiNotes.completion} />
           </div>
-          {localizedSteps.map((step, index) => (
-            <motion.article
-              className={`story-panel ${activeStepId === step.id ? "is-active" : ""}`}
-              data-story-step={step.id}
-              id={step.id === "progress" ? "dashboard" : `story-${step.id}`}
-              key={step.id}
-              ref={(node) => {
-                stepRefs.current[step.id] = node;
-              }}
-              initial={{ opacity: 0, y: 34 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              // amount must stay tiny: tall panels (the exec dashboard is ~3400px)
-              // can never reach a large visibility ratio, which left them at opacity 0.
-              viewport={{ once: true, amount: 0.06 }}
-            >
-              <div className="flex items-center justify-between gap-4">
-                <p className="eyebrow">{step.eyebrow}</p>
-                <span className="story-step-count">{String(index + 1).padStart(2, "0")}</span>
-              </div>
-              <h3>{step.title}</h3>
-              <p>{step.body}</p>
-              <div className="story-source-note">
-                <FileText className="h-4 w-4 text-palm" />
-                <span>{step.source}</span>
-              </div>
-              <div className="story-panel-metric">
-                <strong>{step.metric}</strong>
-                <span>{step.metricLabel}</span>
-              </div>
-              {step.id === "vision" ? <NetworkGlobe locale={locale} /> : null}
-              {step.id === "value" ? <ValueBeat locale={locale} /> : null}
-              {step.id === "principles" ? <PrinciplesPreview locale={locale} /> : null}
-              {step.id === "users" ? <UserGroupPreview locale={locale} /> : null}
-              {step.id === "strategy" ? <NetworkStrategyPreview locale={locale} /> : null}
-              {step.id === "route-types" ? <RouteTypePreview locale={locale} onSelectType={(type) => {
-                const firstRoute = networkRoutes.find((route) => route.type === type);
-                setSoloRouteId(null);
-                setVisibleTypes([type]);
-                if (firstRoute) setSelectedRouteId(firstRoute.id);
-                setPlayback("playing");
-              }} /> : null}
-              {step.id === "network" ? <NetworkFocusPreview locale={locale} onSelectRoute={(routeId, type) => {
-                setSelectedRouteId(routeId);
-                setSoloRouteId(routeId);
-                setVisibleTypes([type]);
-                setPlayback("playing");
-              }} /> : null}
-              {step.id === "progress" ? <ExecutiveProgressDashboard locale={locale} /> : null}
-              {step.id === "kpis" ? <ExecutiveInsights locale={locale} /> : null}
-              {step.id === "future" ? <><ForecastTimeline key={activeStepId === step.id ? "replay" : "idle"} locale={locale} /><MilestonePreview locale={locale} /><CompletionInsights locale={locale} /></> : null}
-              {step.id === "ask" ? <TheAsk locale={locale} /> : null}
-            </motion.article>
-          ))}
+          <div className="story-deck">
+            <div className="story-deck-route" aria-hidden="true">
+              <span />
+              <motion.i
+                animate={{ left: `calc(${progress}% - 13px)` }}
+                transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 180, damping: 24 }}
+              >
+                <Bike className="h-4 w-4" />
+              </motion.i>
+            </div>
+            <AnimatePresence initial={false} mode="popLayout" custom={physicalDirection}>
+              <motion.article
+                className="story-panel is-active"
+                data-story-step={activeStep.id}
+                id={activeStep.id === "progress" ? "dashboard" : `story-${activeStep.id}`}
+                key={activeStep.id}
+                custom={physicalDirection}
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: physicalDirection * 72, scale: 0.97, filter: "blur(8px)" }}
+                animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: physicalDirection * -48, scale: 0.985, filter: "blur(5px)" }}
+                transition={reduceMotion ? { duration: 0.12 } : { duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <motion.div
+                  className="story-panel-content"
+                  initial="hidden"
+                  animate="show"
+                  variants={{
+                    hidden: {},
+                    show: { transition: { staggerChildren: reduceMotion ? 0 : 0.045, delayChildren: reduceMotion ? 0 : 0.08 } }
+                  }}
+                >
+                  <motion.div className="flex items-center justify-between gap-4" variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}>
+                    <p className="eyebrow">{activeStep.eyebrow}</p>
+                    <span className="story-step-count">{String(activeIndex + 1).padStart(2, "0")}</span>
+                  </motion.div>
+                  <motion.h3 variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}>{activeStep.title}</motion.h3>
+                  <motion.p variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}>{activeStep.body}</motion.p>
+                  <motion.div className="story-source-note" variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}>
+                    <FileText className="h-4 w-4 text-palm" />
+                    <span>{activeStep.source}</span>
+                  </motion.div>
+                  <motion.div className="story-panel-metric" variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}>
+                    <strong>{activeStep.metric}</strong>
+                    <span>{activeStep.metricLabel}</span>
+                  </motion.div>
+                  <motion.div className="story-panel-preview" variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}>
+                    {renderActivePreview()}
+                  </motion.div>
+                </motion.div>
+              </motion.article>
+            </AnimatePresence>
+            <div className="story-deck-controls" aria-label={c.chapterPosition}>
+              <button onClick={() => previousStep && goToStep(previousStep)} disabled={!previousStep} aria-label={c.previousChapter}>
+                {locale === "ar" ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                <span>{c.previousChapter}</span>
+              </button>
+              <strong>{String(activeIndex + 1).padStart(2, "0")} / {String(localizedSteps.length).padStart(2, "0")}</strong>
+              <button onClick={() => nextStep && goToStep(nextStep)} disabled={!nextStep} aria-label={c.nextChapter}>
+                <span>{c.nextChapter}</span>
+                {locale === "ar" ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -527,14 +577,15 @@ function NetworkGlobe({ locale }: { locale: "en" | "ar" }) {
 }
 
 function RouteTypePreview({ locale, onSelectType }: { locale: "en" | "ar"; onSelectType: (type: RouteType) => void }) {
+  const reduceMotion = useReducedMotion();
   return (
     <div className="story-route-type-list">
       {allTypes.map((type) => (
-        <button key={type} onClick={() => onSelectType(type)}>
+        <motion.button key={type} onClick={() => onSelectType(type)} whileHover={reduceMotion ? undefined : { y: -3 }} whileTap={reduceMotion ? undefined : { scale: 0.985 }}>
           <Route className="h-4 w-4" />
           <span>{routeTypeName[locale][type]}</span>
           <small>{routeTypeDescription[locale][type]}</small>
-        </button>
+        </motion.button>
       ))}
     </div>
   );
@@ -542,16 +593,17 @@ function RouteTypePreview({ locale, onSelectType }: { locale: "en" | "ar"; onSel
 
 function NetworkFocusPreview({ locale, onSelectRoute }: { locale: "en" | "ar"; onSelectRoute: (routeId: string, type: RouteType) => void }) {
   const c = uiCopy[locale];
+  const reduceMotion = useReducedMotion();
   return (
     <div className="story-network-focus">
       {networkRoutes.map((route) => {
         const pct = Math.round((route.completedKm / route.plannedKm) * 100);
         return (
-          <button key={route.id} onClick={() => onSelectRoute(route.id, route.type)}>
+          <motion.button key={route.id} onClick={() => onSelectRoute(route.id, route.type)} whileHover={reduceMotion ? undefined : { y: -3 }} whileTap={reduceMotion ? undefined : { scale: 0.985 }}>
             <span style={{ background: route.color }} />
             <strong>{routeLabel(route, locale)}</strong>
             <small>{pct}% {c.complete}</small>
-          </button>
+          </motion.button>
         );
       })}
     </div>
@@ -571,15 +623,15 @@ function ExecutiveProgressDashboard({ locale }: { locale: "en" | "ar" }) {
   const contractors = Array.from(new Set(networkRoutes.map((route) => route.contractor.split("/")[0].trim())));
   const nextForecast = milestones.find((item) => item.date.includes("Feb 2026")) ?? milestones[0];
   const kpis = [
-    { label: c.totalPlanned, value: `${planned.toFixed(1)} km`, icon: Waypoints },
-    { label: c.completedAsphalt, value: `${completed.toFixed(1)} km`, icon: CheckCircle2 },
-    { label: c.remainingScope, value: `${remaining.toFixed(1)} km`, icon: Timer },
-    { label: c.portfolioCompletion, value: `${percent}%`, icon: BarChart3 },
-    { label: c.activePackages, value: String(activePackages), icon: Flag },
-    { label: c.completedPackages, value: String(completedPackages), icon: CheckCircle2 },
-    { label: c.designBuild, value: String(designPackages), icon: FileText },
-    { label: c.notStarted, value: String(notStartedPackages), icon: CalendarDays },
-    { label: c.nextForecast, value: formatForecast(nextForecast.date, locale), icon: CalendarDays }
+    { label: c.totalPlanned, value: planned, decimals: 1, suffix: " km", icon: Waypoints },
+    { label: c.completedAsphalt, value: completed, decimals: 1, suffix: " km", icon: CheckCircle2 },
+    { label: c.remainingScope, value: remaining, decimals: 1, suffix: " km", icon: Timer },
+    { label: c.portfolioCompletion, value: percent, decimals: 0, suffix: "%", icon: BarChart3 },
+    { label: c.activePackages, value: activePackages, decimals: 0, suffix: "", icon: Flag },
+    { label: c.completedPackages, value: completedPackages, decimals: 0, suffix: "", icon: CheckCircle2 },
+    { label: c.designBuild, value: designPackages, decimals: 0, suffix: "", icon: FileText },
+    { label: c.notStarted, value: notStartedPackages, decimals: 0, suffix: "", icon: CalendarDays },
+    { label: c.nextForecast, value: formatForecast(nextForecast.date, locale), decimals: 0, suffix: "", icon: CalendarDays }
   ];
 
   return (
@@ -596,11 +648,11 @@ function ExecutiveProgressDashboard({ locale }: { locale: "en" | "ar" }) {
         </div>
       </div>
       <div className="exec-kpi-grid">
-        {kpis.map(({ label, value, icon: Icon }) => (
+        {kpis.map(({ label, value, decimals, suffix, icon: Icon }) => (
           <div className="exec-kpi" key={label}>
             <Icon className="h-4 w-4 text-palm" />
             <span>{label}</span>
-            <strong>{value}</strong>
+            <strong>{typeof value === "number" ? <CountUp value={value} decimals={decimals} suffix={suffix} /> : value}</strong>
           </div>
         ))}
       </div>

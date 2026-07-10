@@ -976,6 +976,9 @@ input:focus-visible {
     border-radius: var(--card-radius);
     padding: var(--card-pad);
     min-height: min(560px, 58vh);
+    max-height: min(74vh, 880px);
+    overflow-x: hidden;
+    overflow-y: auto;
     /* Clear the sticky KPI bar (top 65px + ~100px bar) on chapter jumps. */
     scroll-margin-top: 180px;
   }
@@ -1006,9 +1009,87 @@ input:focus-visible {
     letter-spacing: 0;
   }
 
-  .story-panel > p {
+  .story-panel-content > p {
     @apply mt-5 text-lg leading-8;
     color: color-mix(in srgb, var(--story-fg) 72%, transparent);
+  }
+
+  .story-deck {
+    position: relative;
+    min-width: 0;
+  }
+
+  .story-deck-route {
+    position: relative;
+    height: 28px;
+    margin: 0 10px 8px;
+  }
+
+  .story-deck-route > span {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 13px;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(var(--gold-rgb), 0.22), var(--gold), rgba(137, 199, 255, 0.24));
+  }
+
+  .story-deck-route i {
+    position: absolute;
+    top: 0;
+    display: grid;
+    width: 26px;
+    height: 26px;
+    place-items: center;
+    border: 1px solid rgba(var(--gold-rgb), 0.5);
+    border-radius: 999px;
+    background: var(--glass-surface-strong);
+    color: var(--gold);
+    box-shadow: 0 0 22px rgba(var(--gold-rgb), 0.28);
+    font-style: normal;
+    z-index: 2;
+  }
+
+  .story-deck-controls {
+    @apply mt-3 flex items-center justify-between gap-3 rounded-md p-2;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface);
+  }
+
+  .story-deck-controls button {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-xs font-semibold transition;
+    border: 1px solid var(--glass-border);
+    background: color-mix(in srgb, var(--glass-surface-strong) 82%, transparent);
+    color: var(--fg);
+  }
+
+  .story-deck-controls button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: rgba(var(--gold-rgb), 0.55);
+    background: rgba(var(--gold-rgb), 0.13);
+  }
+
+  .story-deck-controls button:disabled {
+    cursor: not-allowed;
+    opacity: 0.38;
+  }
+
+  .story-deck-controls strong {
+    color: var(--fg-muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 520px) {
+    .story-deck-controls button span {
+      display: none;
+    }
+
+    .story-deck-controls button {
+      min-width: 44px;
+      padding-inline: 0;
+    }
   }
 
   .story-source-note {
