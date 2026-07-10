@@ -11,7 +11,6 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronRight,
-  CircleUserRound,
   Download,
   FileText,
   Layers,
@@ -46,6 +45,7 @@ import {
 } from "./data/network";
 import type { RouteType } from "./data/network";
 import { useNetworkStore } from "./store/useNetworkStore";
+import { uiCopy } from "./i18n";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -234,6 +234,7 @@ export default function App() {
       ) : null}
       <AmbientBackground />
       <Hero
+        locale={locale}
         languageLabel={t.language}
         t={t}
         theme={theme}
@@ -596,12 +597,14 @@ function Header({
 }
 
 function Hero({
+  locale,
   languageLabel,
   t,
   theme,
   toggleLanguage,
   toggleTheme
 }: {
+  locale: "en" | "ar";
   languageLabel: string;
   t: (typeof copy)["en"];
   theme: string;
@@ -609,7 +612,7 @@ function Hero({
   toggleTheme: () => void;
 }) {
   const sectionRef = useRef<HTMLElement | null>(null);
-  const [accessibilityOpen, setAccessibilityOpen] = useState(false);
+  const controls = uiCopy[locale];
   return (
     <section id="hero" ref={sectionRef} className="hero">
       <div className="hero-map-grid" />
@@ -618,56 +621,53 @@ function Hero({
           <span key={index} style={{ ["--i" as string]: index }} />
         ))}
       </div>
-      <div className="accessibility-menu">
+      <div className="display-controls" aria-label={controls.displayOptions}>
         <button
-          className="accessibility-trigger"
-          aria-expanded={accessibilityOpen}
-          aria-label="Display options"
-          onClick={() => setAccessibilityOpen((value) => !value)}
+          className="display-control"
+          aria-label={`${controls.language}: ${languageLabel}`}
+          title={controls.language}
+          onClick={toggleLanguage}
         >
-          <CircleUserRound className="h-6 w-6" />
+          <Languages className="h-4 w-4" />
+          <span>{languageLabel}</span>
         </button>
-        {accessibilityOpen ? (
-          <div className="accessibility-popover">
-            <button aria-label="Toggle language" onClick={toggleLanguage}>
-              <Languages className="h-4 w-4" />
-              <span>{languageLabel}</span>
-            </button>
-            <button aria-label="Toggle theme" onClick={toggleTheme}>
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              <span>{theme === "dark" ? "Light" : "Dark"}</span>
-            </button>
-          </div>
-        ) : null}
+        <button
+          className="display-control is-icon"
+          aria-label={theme === "dark" ? controls.lightMode : controls.darkMode}
+          title={theme === "dark" ? controls.lightMode : controls.darkMode}
+          onClick={toggleTheme}
+        >
+          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </button>
       </div>
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 1440 900" preserveAspectRatio="none" aria-hidden="true">
         <path
           className="hero-line"
           d="M-40 620 C 170 530, 250 705, 410 580 S 640 330, 820 420 S 1030 700, 1190 520 S 1390 300, 1490 380"
           fill="none"
-          stroke="#c8a65a"
+          stroke="var(--gold)"
           strokeWidth="7"
           strokeLinecap="round"
           strokeDasharray="1600"
           strokeDashoffset="1600"
         />
       </svg>
-      <button className="hero-bike" aria-label="Animated cycling marker">
+      <button className="hero-bike" aria-label={locale === "ar" ? "مؤشر دراجة متحرك" : "Animated cycling marker"}>
         <span className="hero-bike-trail" />
         <span className="hero-bike-core">
           <Bike className="h-5 w-5" />
         </span>
-        <span className="hero-bike-label">Ride the network</span>
+        <span className="hero-bike-label">{locale === "ar" ? "انطلق عبر الشبكة" : "Ride the network"}</span>
       </button>
       <div className="hero-content relative z-10 mx-auto flex min-h-screen max-w-7xl flex-col justify-center px-6 pb-16 pt-20 md:px-10">
-        <motion.img className="hero-brand-mark" src="/images/adsc-logo.svg" alt="Abu Dhabi Sports Council" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} />
+        <motion.img className="hero-brand-mark" src={theme === "dark" ? "/images/adsc-logo-white-official.svg" : "/images/adsc-logo-official.svg"} alt={t.heroEyebrow} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} />
         <motion.p className="eyebrow" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           {t.heroEyebrow}
         </motion.p>
         <motion.h1 className="mt-5 max-w-5xl text-6xl font-semibold leading-[0.94] md:text-8xl" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           {t.heroTitle}
         </motion.h1>
-        <motion.p className="mt-7 max-w-2xl text-xl leading-8 text-white/70" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+        <motion.p className="hero-summary mt-7 max-w-2xl text-xl leading-8" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           {t.heroText}
         </motion.p>
         <motion.a className="button mt-9 w-fit" href="#story-network" initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>

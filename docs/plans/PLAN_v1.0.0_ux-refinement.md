@@ -72,14 +72,14 @@ Same figures repeat across: top `story-kpi-bar` (planned/completed/remaining/%),
 
 **Goal:** two independent control buttons, click-outside-to-close, and a 100%-themed app in light mode.
 
-- [ ] **1.1 Split controls.** Replace the combined `accessibility-popover` in `Hero` (`App.tsx`) with **two separate, always-visible buttons**: a **Language** toggle (`EN`/`AR`) and a **Theme** toggle (sun/moon). Localize their labels/aria via `uiCopy` (add keys `language`, `theme`, `lightMode`, `darkMode`, `displayOptions` to `en`+`ar`). These live in the new persistent top bar (built in Step 2) — for now render them where the popover was, then relocate in Step 2.
-- [ ] **1.2 Click-outside.** Add a reusable `src/hooks/useClickOutside.ts` (pointerdown listener → callback when target is outside the ref; also close on `Escape`). Apply to every popover/menu/dropdown (assistant panel, any legend flyout, base-map menu).
-- [ ] **1.3 Theme parity sweep.** Make every hardcoded-dark surface token-driven so light mode has **no dark islands**:
+- [x] **1.1 Split controls.** Replace the combined `accessibility-popover` in `Hero` (`App.tsx`) with **two separate, always-visible buttons**: a **Language** toggle (`EN`/`AR`) and a **Theme** toggle (sun/moon). Localize their labels/aria via `uiCopy` (add keys `language`, `theme`, `lightMode`, `darkMode`, `displayOptions` to `en`+`ar`). These live in the new persistent top bar (built in Step 2) — for now render them where the popover was, then relocate in Step 2.
+- [x] **1.2 Click-outside.** Add a reusable `src/hooks/useClickOutside.ts` (pointerdown listener → callback when target is outside the ref; also close on `Escape`). Apply to every popover/menu/dropdown (assistant panel, any legend flyout, base-map menu).
+- [x] **1.3 Theme parity sweep.** Make every hardcoded-dark surface token-driven so light mode has **no dark islands**:
   - `.hero` + `.hero-map-grid` (`styles.css` 333-364): replace base dark gradient/`color:#eef4fc` with `var(--story-bg)`/`var(--fg)`; keep a `.dark` variant. The ADSC logo/top bar must read light in light mode.
   - `.presenter-bar` (2670+) and `.tour-hud` (2759+): add light-theme variants via tokens (`--glass-surface-strong`, `--fg`).
   - `.floating-panel` (`text-pearl`→ token), NetworkMap `bg-obsidian/72` (L368) & `bg-obsidian` (L399) → tokened glass classes; `.map-mode`/`.route-search-result` → move off `.story-shell`-only patch.
   - Audit remaining `bg-ink/bg-asphalt/bg-obsidian/text-pearl/text-white*` in **rendered** components (dead `{false&&}` block can be ignored or deleted — see Step 5.4). Prefer deleting dead code over theming it.
-- [ ] **1.4 QA:** toggle light↔dark on every screen region (top bar, map, story deck, KPI card, assistant, presenter bar, tour HUD, dialogs). Contrast ≥ WCAG AA for text. Gold branding preserved. Commit `feat(theme): independent controls + full light/dark parity`.
+- [x] **1.4 QA:** toggle light↔dark on every screen region (top bar, map, story deck, KPI card, assistant, presenter bar, tour HUD, dialogs). Contrast ≥ WCAG AA for text. Gold branding preserved. Commit `feat(theme): independent controls + full light/dark parity`.
 
 ---
 

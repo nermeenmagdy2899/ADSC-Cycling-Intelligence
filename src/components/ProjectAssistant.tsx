@@ -1,8 +1,9 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, MessageCircle, Send, Sparkles, X } from "lucide-react";
 import { designPrinciples, milestones, networkRoutes, personas, strategyPrinciples } from "../data/network";
 import { formatForecast, personaAr, routeDescription, routeLabel, routeName, routeTypeDescription, routeTypeName, uiCopy } from "../i18n";
 import { useNetworkStore } from "../store/useNetworkStore";
+import { useClickOutside } from "../hooks/useClickOutside";
 
 type Message = {
   role: "assistant" | "user";
@@ -29,6 +30,9 @@ export function ProjectAssistant() {
   const c = uiCopy[locale];
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
+  const dockRef = useRef<HTMLDivElement | null>(null);
+  const closeAssistant = useCallback(() => setOpen(false), []);
+  useClickOutside(dockRef, closeAssistant, open);
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -73,7 +77,7 @@ export function ProjectAssistant() {
   };
 
   return (
-    <div className="assistant-dock" aria-live="polite">
+    <div ref={dockRef} className="assistant-dock" aria-live="polite">
       <button className="assistant-toggle" aria-label={open ? c.closeAssistant : c.openAssistant} onClick={() => setOpen((value) => !value)}>
         <span className="assistant-toggle-ring" />
         {open ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}

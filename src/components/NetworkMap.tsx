@@ -365,11 +365,11 @@ export function NetworkMap({ variant = "full" }: { variant?: "full" | "story" })
               : "radial-gradient(circle at 45% 35%, rgba(231,198,136,0.12), transparent 30%), linear-gradient(180deg, rgba(2,4,10,0.04), rgba(2,4,10,0.34))"
         }}
       />
-      <div className="pointer-events-none absolute left-1/2 top-4 z-10 hidden -translate-x-1/2 items-center gap-3 rounded-md border border-white/10 bg-obsidian/72 px-4 py-3 text-pearl shadow-panel backdrop-blur-xl lg:flex">
+      <div className="map-context-badge pointer-events-none absolute left-1/2 top-4 z-10 hidden -translate-x-1/2 items-center gap-3 px-4 py-3 lg:flex">
         <Bike className="h-5 w-5 text-palm" />
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-palm">{c.mapBadgeTitle}</p>
-          <p className="text-xs text-white/55">{c.mapBadgeText}</p>
+          <p className="map-muted text-xs">{c.mapBadgeText}</p>
         </div>
       </div>
     </div>
@@ -396,7 +396,7 @@ export function NetworkMap({ variant = "full" }: { variant?: "full" | "story" })
   }
 
   return (
-    <div className="relative overflow-hidden border-y border-white/10 bg-obsidian px-4 py-5 md:px-6">
+    <div className="network-map-shell relative overflow-hidden px-4 py-5 md:px-6">
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[length:72px_72px]" />
       <div className="relative z-10 grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)_340px] 2xl:grid-cols-[370px_minmax(0,1fr)_370px]">
         <aside className="floating-panel max-h-[760px] overflow-auto p-4">

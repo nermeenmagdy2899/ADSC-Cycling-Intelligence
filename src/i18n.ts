@@ -7,6 +7,11 @@ export const rtl = (locale: Locale) => locale === "ar";
 export const uiCopy = {
   en: {
     plannedNetwork: "Planned Network",
+    language: "Language",
+    theme: "Theme",
+    lightMode: "Light mode",
+    darkMode: "Dark mode",
+    displayOptions: "Display options",
     completed: "Completed",
     remaining: "Remaining",
     completion: "Completion",
@@ -87,6 +92,11 @@ export const uiCopy = {
   },
   ar: {
     plannedNetwork: "الشبكة المخططة",
+    language: "اللغة",
+    theme: "المظهر",
+    lightMode: "الوضع الفاتح",
+    darkMode: "الوضع الداكن",
+    displayOptions: "خيارات العرض",
     completed: "المنجز",
     remaining: "المتبقي",
     completion: "نسبة الإنجاز",

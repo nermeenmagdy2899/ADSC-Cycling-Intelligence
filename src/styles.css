@@ -294,7 +294,10 @@ input:focus-visible {
   }
 
   .floating-panel {
-    @apply rounded-md text-pearl shadow-panel;
+    @apply rounded-md shadow-panel;
+    color: var(--fg);
+    background: var(--glass-surface-strong);
+    border-color: var(--glass-border);
   }
 
   .button {
@@ -332,12 +335,8 @@ input:focus-visible {
 
   .hero {
     @apply relative min-h-screen overflow-hidden;
-    background:
-      radial-gradient(circle at 18% 18%, rgba(231, 198, 136, 0.22), transparent 26%),
-      radial-gradient(circle at 82% 18%, rgba(137, 199, 255, 0.16), transparent 26%),
-      radial-gradient(circle at 54% 80%, rgba(231, 198, 136, 0.12), transparent 34%),
-      linear-gradient(135deg, #02040a 0%, #070d18 48%, #0b1320 100%);
-    color: #eef4fc;
+    background: var(--story-bg);
+    color: var(--fg);
   }
 
   .dark .hero {
@@ -353,11 +352,11 @@ input:focus-visible {
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(circle at 68% 22%, rgba(231, 198, 136, 0.18), transparent 24%),
+      radial-gradient(circle at 68% 22%, rgba(var(--gold-rgb), 0.18), transparent 24%),
       radial-gradient(circle at 22% 70%, rgba(137, 199, 255, 0.12), transparent 22%),
-      linear-gradient(135deg, rgba(2, 4, 10, 0.92), rgba(11, 19, 32, 0.58)),
-      linear-gradient(rgba(231,198,136,0.055) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(231,198,136,0.055) 1px, transparent 1px);
+      linear-gradient(135deg, rgba(var(--scrim), 0.14), rgba(var(--scrim), 0.02)),
+      linear-gradient(rgba(var(--gold-rgb), 0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(var(--gold-rgb), 0.055) 1px, transparent 1px);
     background-size: auto, auto, auto, 72px 72px, 72px 72px;
   }
 
@@ -395,80 +394,51 @@ input:focus-visible {
     animation-delay: calc(var(--i) * -0.9s);
   }
 
-  .accessibility-menu {
+  .display-controls {
     position: fixed;
     right: 22px;
     top: 22px;
     z-index: 70;
-    display: grid;
-    justify-items: end;
+    display: flex;
+    align-items: center;
     gap: 10px;
   }
 
-  :root:lang(ar) .accessibility-menu {
+  :root:lang(ar) .display-controls {
     right: auto;
     left: 22px;
-    justify-items: start;
   }
 
-  .accessibility-trigger {
-    position: relative;
-    display: grid;
-    min-height: 56px;
-    min-width: 56px;
-    place-items: center;
-    border: 1px solid rgba(var(--gold-rgb), 0.72);
-    border-radius: 999px;
-    background:
-      radial-gradient(circle at 30% 18%, rgba(255, 255, 255, 0.42), transparent 30%),
-      linear-gradient(135deg, var(--gold), var(--gold-strong));
-    color: var(--on-gold);
-    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28), 0 0 34px rgba(var(--gold-rgb), 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.26);
-    transition: transform 220ms ease, box-shadow 220ms ease;
-  }
-
-  .accessibility-trigger:hover,
-  .accessibility-trigger[aria-expanded="true"] {
-    transform: translateY(-2px) scale(1.05);
-    border-color: rgba(var(--gold-rgb), 0.92);
-    box-shadow: 0 22px 54px rgba(0, 0, 0, 0.34), 0 0 48px rgba(var(--gold-rgb), 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.32);
-  }
-
-  .accessibility-popover {
-    display: grid;
-    min-width: 164px;
-    gap: 8px;
-    border: 1px solid rgba(var(--gold-rgb), 0.3);
-    border-radius: 14px;
-    padding: 10px;
-    background:
-      linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04)),
-      color-mix(in srgb, var(--bg-elevated) 88%, transparent);
-    color: var(--fg);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.14);
-    backdrop-filter: blur(22px) saturate(165%);
-    -webkit-backdrop-filter: blur(22px) saturate(165%);
-  }
-
-  .accessibility-popover button {
-    display: flex;
-    min-height: 44px;
+  .display-control {
+    display: inline-flex;
+    min-height: 48px;
+    min-width: 64px;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    padding: 0 12px;
-    background: rgba(255, 255, 255, 0.08);
-    color: inherit;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 0 14px;
+    background:
+      linear-gradient(135deg, rgba(var(--gold-rgb), 0.12), transparent),
+      var(--glass-surface-strong);
+    color: var(--fg);
+    box-shadow: var(--glass-shadow);
     font-size: 13px;
     font-weight: 800;
-    transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    transition: transform var(--dur-fast) var(--ease-premium), border-color var(--dur-fast) ease, background var(--dur-fast) ease;
   }
 
-  .accessibility-popover button:hover {
+  .display-control.is-icon {
+    min-width: 48px;
+    padding: 0;
+  }
+
+  .display-control:hover {
     transform: translateY(-1px);
-    border-color: rgba(var(--gold-rgb), 0.44);
+    border-color: rgba(var(--gold-rgb), 0.56);
     background: rgba(var(--gold-rgb), 0.14);
   }
 
@@ -507,7 +477,8 @@ input:focus-visible {
     border-radius: 999px;
     background:
       radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.2), transparent 28%),
-      rgba(7, 13, 24, 0.86);
+      var(--glass-surface-strong);
+    color: var(--fg);
     box-shadow: 0 0 42px rgba(231, 198, 136, 0.56), inset 0 0 18px rgba(231, 198, 136, 0.16);
     transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
   }
@@ -548,8 +519,8 @@ input:focus-visible {
     white-space: nowrap;
     border: 1px solid rgba(231, 198, 136, 0);
     border-radius: 999px;
-    background: rgba(7, 13, 24, 0.76);
-    color: #eef4fc;
+    background: var(--glass-surface-strong);
+    color: var(--fg);
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.16em;
@@ -561,7 +532,11 @@ input:focus-visible {
 
   .hero h1,
   .hero p:not(.eyebrow) {
-    color: color-mix(in srgb, currentColor 78%, transparent);
+    color: var(--fg);
+  }
+
+  .hero .hero-summary {
+    color: var(--fg-muted);
   }
 
   .hero h1 {
@@ -593,12 +568,12 @@ input:focus-visible {
       margin-bottom: 20px;
     }
 
-    .accessibility-menu {
+    .display-controls {
       right: 18px;
       top: 18px;
     }
 
-    :root:lang(ar) .accessibility-menu {
+    :root:lang(ar) .display-controls {
       right: auto;
       left: 18px;
     }
@@ -627,7 +602,7 @@ input:focus-visible {
     inset: 0;
     pointer-events: none;
     border: 1px solid rgba(var(--gold-rgb), 0.18);
-    box-shadow: inset 0 0 80px rgba(2, 4, 10, 0.72);
+    box-shadow: inset 0 0 80px rgba(var(--scrim), 0.18);
   }
 
   .gis-map-stage.is-light::after {
@@ -715,7 +690,10 @@ input:focus-visible {
   }
 
   .story-chapter-nav button {
-    @apply min-w-[150px] rounded-md border border-white/10 bg-obsidian/50 px-2 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.1em] text-white/45 transition hover:border-palm/40 hover:text-white;
+    @apply min-w-[150px] rounded-md px-2 py-2 text-left text-[9px] font-semibold uppercase tracking-[0.1em] transition;
+    border: 1px solid var(--glass-border);
+    background: color-mix(in srgb, var(--glass-surface) 78%, transparent);
+    color: var(--fg-muted);
   }
 
   .story-chapter-nav button span {
@@ -723,11 +701,16 @@ input:focus-visible {
   }
 
   .story-chapter-nav button.is-active {
-    @apply border-palm/60 bg-palm/15 text-white shadow-glow;
+    border-color: rgba(var(--gold-rgb), 0.6);
+    background: rgba(var(--gold-rgb), 0.15);
+    color: var(--fg);
+    box-shadow: 0 0 20px rgba(var(--gold-rgb), 0.18);
   }
 
   .story-map-frame {
-    @apply overflow-hidden rounded-md border border-white/10 bg-obsidian/60 shadow-panel;
+    @apply overflow-hidden rounded-md shadow-panel;
+    border: 1px solid var(--glass-border);
+    background: var(--bg-panel);
   }
 
   .story-map-footer {
@@ -961,7 +944,8 @@ input:focus-visible {
   }
 
   .story-panel-metric span {
-    @apply text-sm uppercase tracking-[0.18em] text-white/50;
+    @apply text-sm uppercase tracking-[0.18em];
+    color: var(--fg-muted);
   }
 
   .story-mini-grid {
@@ -976,16 +960,20 @@ input:focus-visible {
   }
 
   .story-globe-card {
-    @apply mt-6 grid gap-5 rounded-md border border-white/10 bg-obsidian/60 p-5 md:grid-cols-[150px_1fr];
+    @apply mt-6 grid gap-5 rounded-md p-5 md:grid-cols-[150px_1fr];
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface);
     perspective: 900px;
   }
 
   .story-globe-card strong {
-    @apply block text-xl text-white;
+    @apply block text-xl;
+    color: var(--fg);
   }
 
   .story-globe-card p {
-    @apply mt-3 text-sm leading-6 text-white/55;
+    @apply mt-3 text-sm leading-6;
+    color: var(--fg-muted);
   }
 
   .story-globe {
@@ -1461,15 +1449,25 @@ input:focus-visible {
   }
 
   .map-mode {
-    @apply inline-flex items-center justify-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/60 transition hover:border-palm/50 hover:text-white;
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm transition;
+    min-height: 44px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface);
+    color: var(--fg-muted);
   }
 
   .map-mode.is-active {
-    @apply border-palm/60 bg-palm/15 text-white;
+    border-color: rgba(var(--gold-rgb), 0.6);
+    background: rgba(var(--gold-rgb), 0.15);
+    color: var(--fg);
   }
 
   .route-search-result {
-    @apply flex w-full items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-left text-sm text-white/60 transition hover:border-palm/50 hover:text-white;
+    @apply flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition;
+    min-height: 44px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface);
+    color: var(--fg-muted);
   }
 
   .route-search-result span {
@@ -1477,7 +1475,36 @@ input:focus-visible {
   }
 
   .route-search-result.is-active {
-    @apply border-palm/60 bg-palm/15 text-white;
+    border-color: rgba(var(--gold-rgb), 0.6);
+    background: rgba(var(--gold-rgb), 0.15);
+    color: var(--fg);
+  }
+
+  .map-mode:hover,
+  .route-search-result:hover {
+    border-color: rgba(var(--gold-rgb), 0.5);
+    color: var(--fg);
+  }
+
+  .map-context-badge {
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    background: var(--glass-surface-strong);
+    color: var(--fg);
+    box-shadow: var(--glass-shadow);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+  }
+
+  .map-muted {
+    color: var(--fg-muted);
+  }
+
+  .network-map-shell {
+    border-top: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--glass-border);
+    background: var(--bg-panel);
+    color: var(--fg);
   }
 
   .geojson-route-draw {
@@ -1714,8 +1741,8 @@ input:focus-visible {
   }
 
   .assistant-message.assistant {
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface);
     color: color-mix(in srgb, var(--fg) 78%, transparent);
   }
 
@@ -1750,7 +1777,7 @@ input:focus-visible {
     min-height: 34px;
     border: 1px solid rgba(var(--gold-rgb), 0.22);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.07);
+    background: var(--glass-surface);
     padding: 7px 10px;
     color: color-mix(in srgb, var(--fg) 74%, transparent);
     font-size: 12px;
@@ -1767,23 +1794,23 @@ input:focus-visible {
     display: grid;
     grid-template-columns: 1fr 44px;
     gap: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--glass-border);
     padding: 12px;
-    background: rgba(0, 0, 0, 0.14);
+    background: color-mix(in srgb, var(--bg-panel) 86%, transparent);
   }
 
   .assistant-form input {
     min-height: 44px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--glass-border);
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--glass-surface);
     padding: 0 12px;
     color: var(--fg);
     outline: none;
   }
 
   .assistant-form input::placeholder {
-    color: rgba(255, 250, 242, 0.42);
+    color: var(--fg-subtle);
   }
 
   .assistant-form button {
@@ -2678,12 +2705,12 @@ input:focus-visible {
   gap: 12px;
   border-radius: 999px;
   border: 1px solid rgba(var(--gold-rgb), 0.34);
-  background: rgba(7, 13, 24, 0.82);
+  background: var(--glass-surface-strong);
   padding: 8px 8px 8px 16px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
-  color: #eef4fc;
+  color: var(--fg);
 }
 
 .presenter-bar strong {
@@ -2696,18 +2723,18 @@ input:focus-visible {
 
 .presenter-bar small {
   font-size: 11px;
-  color: rgba(238, 244, 252, 0.6);
+  color: var(--fg-muted);
 }
 
 .presenter-bar button {
   min-height: 32px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-surface);
   padding: 0 14px;
   font-size: 11px;
   font-weight: 700;
-  color: #eef4fc;
+  color: var(--fg);
   cursor: pointer;
   transition: background var(--dur-fast) var(--ease-premium), border-color var(--dur-fast) var(--ease-premium);
 }
@@ -2737,7 +2764,7 @@ input:focus-visible {
 }
 
 .is-presenter .assistant-dock,
-.is-presenter .accessibility-menu {
+.is-presenter .display-controls {
   display: none !important;
 }
 
@@ -2765,9 +2792,9 @@ input:focus-visible {
   max-width: min(340px, calc(100% - 32px));
   border-radius: 14px;
   border: 1px solid rgba(var(--gold-rgb), 0.4);
-  background: rgba(4, 8, 16, 0.78);
+  background: var(--glass-surface-strong);
   padding: 14px 16px;
-  color: #eef4fc;
+  color: var(--fg);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), 0 0 30px rgba(var(--gold-rgb), 0.16);
   backdrop-filter: blur(18px) saturate(160%);
   -webkit-backdrop-filter: blur(18px) saturate(160%);
@@ -2814,7 +2841,7 @@ input:focus-visible {
   gap: 12px;
   margin-top: 6px;
   font-size: 12px;
-  color: rgba(238, 244, 252, 0.66);
+  color: var(--fg-muted);
 }
 
 .tour-hud-meta em {
@@ -2833,7 +2860,7 @@ input:focus-visible {
   height: 4px;
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--fg) 14%, transparent);
 }
 
 .tour-hud-bar span {
