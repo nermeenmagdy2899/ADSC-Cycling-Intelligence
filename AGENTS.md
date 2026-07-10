@@ -48,3 +48,4 @@ CEO-level interactive presentation of the **Abu Dhabi Cycling Network** (ADSC), 
 | Step | Status | Timestamp (ISO) | Model | Commit | Notes |
 |------|--------|-----------------|-------|--------|-------|
 | Planning + docs (Step 0.2/0.3) | done | 2026-07-10 | claude-opus-4-8 | _(uncommitted)_ | Authored PLAN v1.0.0 + this handover after 3-agent codebase exploration. Prior session (Fable 5) fixed the empty-dashboard bug + tour/presenter feedback (uncommitted on `main`). Next agent starts at **Step 0.1** (branch `feat/ux-refinement-v1`, commit baseline). |
+| Step 0.1 — baseline branch | done | 2026-07-10T14:15:13+03:00 | GPT-5 Codex | `02d90e7` | Created `feat/ux-refinement-v1` and committed the prior working application as the restore point. |

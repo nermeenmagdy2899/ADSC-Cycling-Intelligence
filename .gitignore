@@ -2,3 +2,10 @@ node_modules/
 dist/
 .pnpm-store/
 dev-server.log
+.claude/settings.local.json
+
+# Local server-only secrets. Keep the documented template committed.
+.env
+.env.local
+.env.*
+!.env.example

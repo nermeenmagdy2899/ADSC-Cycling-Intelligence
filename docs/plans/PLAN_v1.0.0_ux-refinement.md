@@ -60,11 +60,11 @@ Same figures repeat across: top `story-kpi-bar` (planned/completed/remaining/%),
 
 ## STEP 0 — Bootstrap, safety net, versioned docs
 
-- [ ] **0.1** Create branch `feat/ux-refinement-v1`. Commit the current uncommitted baseline first (prior session's work is untracked — this is the restore point): `git add -A && git commit -m "chore: baseline before UX refinement v1"`.
+- [x] **0.1** Create branch `feat/ux-refinement-v1`. Commit the current uncommitted baseline first (prior session's work is untracked — this is the restore point): `git add -A && git commit -m "chore: baseline before UX refinement v1"`.
 - [x] **0.2** Create `docs/plans/` and `docs/plans/old/`. Copy this plan to `docs/plans/PLAN_v1.0.0_ux-refinement.md`. *(Done during planning — this file. No older plans existed to move.)*
 - [x] **0.3** Create the handover file `AGENTS.md` at repo root. *(Done during planning — seeded with overview/architecture + first log row. Keep appending.)*
-- [ ] **0.4** Secrets hygiene: ensure `.gitignore` contains `.env`, `.env.local`, `.env.*`. Create `.env.local` (gitignored) holding `OPENAI_API_KEY=…` and add `.env.example` (committed, no secret) documenting required vars. **Do not commit the real key.** (`AGENTS.md` already notes the shared key must be rotated.)
-- [ ] **0.5** Confirm toolchain: `gsap` + `framer-motion` present (they are). No new animation deps needed. Commit docs + gitignore.
+- [x] **0.4** Secrets hygiene: ensure `.gitignore` contains `.env`, `.env.local`, `.env.*`. Create `.env.local` (gitignored) holding `OPENAI_API_KEY=…` and add `.env.example` (committed, no secret) documenting required vars. **Do not commit the real key.** (`AGENTS.md` already notes the shared key must be rotated.)
+- [x] **0.5** Confirm toolchain: `gsap` + `framer-motion` present (they are). No new animation deps needed. Commit docs + gitignore.
 
 ---
 
