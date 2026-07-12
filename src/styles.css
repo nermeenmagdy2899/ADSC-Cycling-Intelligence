@@ -3850,6 +3850,50 @@ input:focus-visible {
   align-self: start;
 }
 
+[data-story-step="principles"] .story-merged-preview {
+  grid-template-columns: 0.92fr 1.08fr;
+  align-items: start;
+  zoom: 0.88;
+}
+
+[data-story-step="principles"] .story-mini-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 6px;
+  margin-top: 0;
+}
+
+[data-story-step="principles"] .story-mini-card {
+  min-height: 58px;
+  align-content: center;
+  gap: 5px;
+  padding: 7px;
+  font-size: 11px;
+}
+
+[data-story-step="principles"] .story-persona-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 6px;
+  margin-top: 0;
+}
+
+[data-story-step="principles"] .story-persona-card {
+  min-height: 104px;
+  padding: 10px;
+}
+
+[data-story-step="principles"] .story-persona-card strong {
+  margin-top: 7px;
+  font-size: 0.96rem;
+}
+
+[data-story-step="principles"] .story-persona-card span {
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 [data-story-step="strategy"] .story-merged-preview {
   grid-template-columns: 1fr;
   align-items: start;
@@ -4177,20 +4221,15 @@ input:focus-visible {
   [data-story-step="principles"] .story-mini-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 5px;
-    zoom: 0.84;
   }
 
   [data-story-step="principles"] .story-mini-card {
-    min-height: 42px;
+    min-height: 54px;
     padding: 6px;
     font-size: 11px;
   }
 
-  [data-story-step="users"] .story-persona-grid {
-    zoom: 0.8;
-  }
-
-  [data-story-step="users"] .story-persona-card {
+  [data-story-step="principles"] .story-persona-card {
     min-height: 82px;
     padding: 8px;
   }

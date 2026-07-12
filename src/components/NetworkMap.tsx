@@ -754,6 +754,12 @@ function GeoJsonRouteOverlay({
     cancelAnimationFrame(cameraRafRef.current);
     userInteractingRef.current = true;
     suppressClickRef.current = false;
+    // A full-extent camera has no legal pan range. Establish a modest working
+    // zoom on the first drag so panning responds immediately instead of
+    // appearing broken until the user finds the zoom controls.
+    if (cameraRef.current.w >= 999 || cameraRef.current.h >= 619) {
+      zoomAt(0.84, event.clientX, event.clientY);
+    }
     event.currentTarget.setPointerCapture(event.pointerId);
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     setIsPanning(true);
