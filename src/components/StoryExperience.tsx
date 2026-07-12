@@ -303,8 +303,7 @@ export function StoryExperience() {
         return <div className="story-merged-preview"><PrinciplesPreview locale={locale} /><UserGroupPreview locale={locale} /></div>;
       case "strategy":
         return (
-          <div className="story-merged-preview">
-            <NetworkStrategyPreview locale={locale} />
+          <div className="story-merged-preview story-strategy-preview">
             <RouteTypePreview
               locale={locale}
               onSelectType={(type) => {
@@ -549,12 +548,18 @@ function NetworkGlobe({ locale }: { locale: "en" | "ar" }) {
 
 function RouteTypePreview({ locale, onSelectType }: { locale: "en" | "ar"; onSelectType: (type: RouteType) => void }) {
   const reduceMotion = useReducedMotion();
+  const roles: Record<RouteType, string> = {
+    "type-01": locale === "ar" ? "وصول الجزيرة" : "Island access",
+    "type-02": locale === "ar" ? "روابط استراتيجية" : "Strategic links",
+    "type-03": locale === "ar" ? "محاور البر الرئيسي" : "Mainland corridors",
+    hsct: locale === "ar" ? "رياضة مميزة" : "Signature sport"
+  };
   return (
     <div className="story-route-type-list">
       {allTypes.map((type) => (
         <motion.button key={type} onClick={() => onSelectType(type)} whileHover={reduceMotion ? undefined : { y: -3 }} whileTap={reduceMotion ? undefined : { scale: 0.985 }}>
           <Route className="h-4 w-4" />
-          <span>{routeTypeName[locale][type]}</span>
+          <span><b>{routeTypeName[locale][type]}</b><em>{roles[type]}</em></span>
           <small>{routeTypeDescription[locale][type]}</small>
         </motion.button>
       ))}

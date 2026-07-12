@@ -3833,6 +3833,60 @@ input:focus-visible {
   margin-top: 0;
 }
 
+[data-story-step="strategy"] .story-merged-preview {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+[data-story-step="strategy"] .story-strategy-diagram,
+[data-story-step="strategy"] .story-route-type-list {
+  align-content: start;
+  margin-top: 0;
+}
+
+[data-story-step="strategy"] .story-route-type-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+[data-story-step="strategy"] .story-route-type-list button {
+  position: relative;
+  min-height: 44px;
+  overflow: hidden;
+  padding: 8px 10px;
+}
+
+[data-story-step="strategy"] .story-route-type-list button span {
+  display: grid;
+  gap: 2px;
+}
+
+[data-story-step="strategy"] .story-route-type-list button b {
+  color: var(--story-fg);
+  font-weight: 700;
+}
+
+[data-story-step="strategy"] .story-route-type-list button em {
+  color: color-mix(in srgb, var(--story-fg) 55%, transparent);
+  font-size: 10px;
+  font-style: normal;
+}
+
+[data-story-step="strategy"] .story-route-type-list button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 20%, rgba(var(--gold-rgb), 0.12) 48%, transparent 72%);
+  transform: translateX(-115%);
+  transition: transform 620ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-story-step="strategy"] .story-route-type-list button:hover::after,
+[data-story-step="strategy"] .story-route-type-list button:focus-visible::after {
+  transform: translateX(115%);
+}
+
 [data-story-step="vision"] .story-globe-card {
   grid-template-columns: 116px 1fr;
   gap: 14px;
@@ -4001,6 +4055,30 @@ input:focus-visible {
   .story-deck {
     height: min(680px, 78dvh);
   }
+
+  [data-story-step="strategy"] h3 {
+    margin-top: 10px;
+    font-size: clamp(1.85rem, 4.6vw, 2.55rem);
+  }
+
+  [data-story-step="strategy"] .story-panel-content > p {
+    margin-top: 8px;
+    font-size: 0.88rem;
+    line-height: 1.42;
+  }
+
+  [data-story-step="strategy"] .story-panel-meta {
+    margin-top: 9px;
+  }
+
+  [data-story-step="strategy"] .story-panel-meta .story-source-note,
+  [data-story-step="strategy"] .story-panel-meta .story-panel-metric {
+    min-height: 46px;
+  }
+
+  [data-story-step="strategy"] .story-merged-preview {
+    zoom: 0.82;
+  }
 }
 
 @media (max-width: 767px) {
@@ -4032,7 +4110,7 @@ input:focus-visible {
   }
 
   .story-deck {
-    height: min(560px, 66dvh);
+    height: min(640px, 80dvh);
   }
 
   .story-panel {
@@ -4103,7 +4181,6 @@ input:focus-visible {
   [data-story-step="strategy"] .story-strategy-diagram {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 6px;
-    zoom: 0.72;
   }
 
   [data-story-step="strategy"] .story-strategy-diagram div {
@@ -4121,7 +4198,8 @@ input:focus-visible {
     font-size: 11px;
   }
 
-  [data-story-step="route-types"] .story-route-type-list {
+  [data-story-step="strategy"] .story-merged-preview {
+    grid-template-columns: 1fr;
     zoom: 0.78;
   }
 
