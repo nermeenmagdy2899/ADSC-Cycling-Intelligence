@@ -6,6 +6,7 @@ import { DeliveryCurve, LengthChart, ProgressChart } from "./Charts";
 import { CountUp } from "./CountUp";
 import { BudgetGauge, ForecastTimeline, StructuresContractors } from "./ExecDataviz";
 import { NetworkMap } from "./NetworkMap";
+import { ExecutiveDashboard } from "./ExecutiveDashboard";
 import { designPrinciples, milestones, networkRoutes, personas, programme, strategyPrinciples } from "../data/network";
 import type { RouteType } from "../data/network";
 import { formatForecast, personaAr, routeLabel, routeName, routeTypeDescription, routeTypeName, statusText, storyText, strategyPrincipleAr, uiCopy } from "../i18n";
@@ -122,18 +123,6 @@ const storySteps: StoryStep[] = [
     metricLabel: "Track 3 complete",
     source: "December 2025 Progress Status",
     camera: "Mainland delivery"
-  },
-  {
-    id: "kpis",
-    eyebrow: "Executive KPIs",
-    title: "Project Progress Dashboard",
-    body: "The story highlights what is complete, what is forecast next, where scope remains, and which packages require leadership attention.",
-    routeId: "track-4",
-    visibleTypes: ["type-03"],
-    metric: "99%",
-    metricLabel: "Track 4 progress",
-    source: "Construction KPI dashboard",
-    camera: "Executive progress view"
   },
   {
     id: "future",
@@ -334,9 +323,7 @@ export function StoryExperience() {
           />
         );
       case "progress":
-        return <ExecutiveProgressDashboard locale={locale} />;
-      case "kpis":
-        return <ExecutiveInsights locale={locale} />;
+        return <ExecutiveDashboard locale={locale} />;
       case "future":
         return (
           <>
@@ -375,21 +362,15 @@ export function StoryExperience() {
             </button>
           ))}
         </div>
-        <div className="story-kpi-bar" aria-label={c.executiveView}>
-          <StoryKpi icon={Waypoints} label={c.plannedNetwork} value={totals.planned} decimals={1} suffix=" km" note={kpiNotes.planned} />
-          <StoryKpi icon={CheckCircle2} label={c.completed} value={totals.completed} decimals={1} suffix=" km" note={kpiNotes.completed} />
-          <StoryKpi icon={Timer} label={c.remaining} value={totals.remaining} decimals={1} suffix=" km" note={kpiNotes.remaining} />
-          <StoryKpi icon={BarChart3} label={c.completion} value={totals.percent} suffix="%" note={kpiNotes.completion} />
-        </div>
       </div>
 
-      <div className="story-layout">
+      <div className={`story-layout ${activeStep.id === "progress" ? "is-dashboard" : ""}`}>
         <div className="story-map-column" ref={mapColumnRef}>
           <NetworkMap variant="story" />
         </div>
 
         <div className="story-content-column">
-          <div className="story-deck">
+          <div className={`story-deck ${activeStep.id === "progress" ? "is-dashboard" : ""}`}>
             <div className="story-deck-route" aria-hidden="true">
               <span />
               <motion.i
@@ -411,6 +392,9 @@ export function StoryExperience() {
                 exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: physicalDirection * -48, scale: 0.985, filter: "blur(5px)" }}
                 transition={reduceMotion ? { duration: 0.12 } : { duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
               >
+                {activeStep.id === "progress" ? (
+                  <ExecutiveDashboard locale={locale} />
+                ) : (
                 <motion.div
                   className="story-panel-content"
                   initial="hidden"
@@ -440,6 +424,7 @@ export function StoryExperience() {
                     {renderActivePreview()}
                   </motion.div>
                 </motion.div>
+                )}
               </motion.article>
             </AnimatePresence>
             <div className="story-deck-controls" aria-label={c.chapterPosition}>

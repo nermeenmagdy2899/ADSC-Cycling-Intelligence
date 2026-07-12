@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, BrainCircuit, LoaderCircle, MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { BrainCircuit, MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { designPrinciples, milestones, networkRoutes, personas, strategyPrinciples } from "../data/network";
 import { formatForecast, personaAr, routeDescription, routeLabel, routeName, routeTypeDescription, routeTypeName, uiCopy } from "../i18n";
 import { useNetworkStore } from "../store/useNetworkStore";
@@ -28,10 +29,13 @@ const suggestions = {
 export function ProjectAssistant() {
   const { locale, setSelectedRouteId, setSoloRouteId, setPlayback } = useNetworkStore();
   const c = uiCopy[locale];
+  const thinkingLabel = locale === "ar" ? "\u062c\u0627\u0631\u064d \u062a\u062d\u0644\u064a\u0644 \u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u0645\u0634\u0631\u0648\u0639" : "Analysing project intelligence";
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [thinking, setThinking] = useState(false);
+  const reduceMotion = useReducedMotion();
   const dockRef = useRef<HTMLDivElement | null>(null);
+  const messagesRef = useRef<HTMLDivElement | null>(null);
   const closeAssistant = useCallback(() => setOpen(false), []);
   useClickOutside(dockRef, closeAssistant, open);
   const [messages, setMessages] = useState<Message[]>([
@@ -56,6 +60,15 @@ export function ProjectAssistant() {
     ]);
   }, [locale]);
 
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => {
+      const node = messagesRef.current;
+      node?.scrollTo({ top: node.scrollHeight, behavior: reduceMotion ? "auto" : "smooth" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [messages, thinking, open, reduceMotion]);
+
   const highlighted = useMemo(() => networkRoutes.find((route) => route.forecast.includes("2026")) ?? networkRoutes[0], []);
 
   const ask = async (question: string) => {
@@ -71,6 +84,8 @@ export function ProjectAssistant() {
     setPrompt("");
     setOpen(true);
     setThinking(true);
+    const responseStartedAt = performance.now();
+    let answer: string;
     try {
       const response = await fetch("/api/assistant", {
         method: "POST",
@@ -80,10 +95,13 @@ export function ProjectAssistant() {
       if (!response.ok) throw new Error("assistant unavailable");
       const payload = (await response.json()) as { answer?: string };
       if (!payload.answer) throw new Error("empty assistant response");
-      setMessages((current) => [...current, { role: "assistant", text: payload.answer! }]);
+      answer = payload.answer;
     } catch {
-      setMessages((current) => [...current, { role: "assistant", text: answerQuestion(clean, locale) }]);
+      answer = answerQuestion(clean, locale);
     } finally {
+      const remainingDelay = Math.max(0, 520 - (performance.now() - responseStartedAt));
+      if (remainingDelay) await new Promise((resolve) => setTimeout(resolve, remainingDelay));
+      setMessages((current) => [...current, { role: "assistant", text: answer }]);
       setThinking(false);
     }
   };
@@ -95,12 +113,13 @@ export function ProjectAssistant() {
 
   return (
     <div ref={dockRef} className="assistant-dock" aria-live="polite">
-      <button className="assistant-toggle" aria-label={open ? c.closeAssistant : c.openAssistant} onClick={() => setOpen((value) => !value)}>
+      <motion.button className="assistant-toggle" aria-label={open ? c.closeAssistant : c.openAssistant} onClick={() => setOpen((value) => !value)} whileHover={reduceMotion ? undefined : { y: -3, scale: 1.035 }} whileTap={reduceMotion ? undefined : { scale: 0.94 }}>
         <span className="assistant-toggle-ring" />
         {open ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
-      </button>
+      </motion.button>
+      <AnimatePresence>
       {open ? (
-        <aside className="assistant-panel" role="dialog" aria-label={c.assistant}>
+        <motion.aside className="assistant-panel" role="dialog" aria-label={c.assistant} initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.98 }} transition={{ duration: reduceMotion ? 0.1 : 0.28, ease: [0.16, 1, 0.3, 1] }}>
           <div className="assistant-header">
             <div className="assistant-orb">
               <BrainCircuit className="h-5 w-5" />
@@ -109,6 +128,7 @@ export function ProjectAssistant() {
               <p>{c.assistant}</p>
               <strong>{locale === "ar" ? "طبقة معرفة تنفيذية" : "Executive knowledge layer"}</strong>
             </div>
+            <span className="assistant-online"><i />{locale === "ar" ? "\u0645\u062a\u0635\u0644" : "Online"}</span>
           </div>
           <p className="assistant-subtitle">{c.assistantSubtitle}</p>
           <div className="assistant-insight">
@@ -119,16 +139,16 @@ export function ProjectAssistant() {
                 : `${routeLabel(highlighted, locale)} is in the nearest completion window: ${formatForecast(highlighted.forecast, locale)}.`}
             </span>
           </div>
-          <div className="assistant-messages">
+          <div className="assistant-messages" ref={messagesRef}>
             {messages.map((message, index) => (
-              <div className={`assistant-message ${message.role}`} key={`${message.role}-${index}`}>
+              <motion.div className={`assistant-message ${message.role}`} key={`${message.role}-${index}`} initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: reduceMotion ? 0.1 : 0.24, delay: reduceMotion ? 0 : Math.min(index * 0.025, 0.14) }}>
                 {message.text}
-              </div>
+              </motion.div>
             ))}
             {thinking ? (
               <div className="assistant-message assistant is-thinking" role="status">
-                <LoaderCircle className="h-4 w-4" />
-                <span>{locale === "ar" ? "Ø¬Ø§Ø±Ù ØªØ­Ù„ÙŠÙ„ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø´Ø±ÙˆØ¹" : "Analysing project intelligence"}</span>
+                <span className="assistant-typing-dots" aria-hidden="true"><i /><i /><i /></span>
+                <span>{thinkingLabel}</span>
               </div>
             ) : null}
           </div>
@@ -146,8 +166,9 @@ export function ProjectAssistant() {
               <Send className="h-4 w-4" />
             </button>
           </form>
-        </aside>
+        </motion.aside>
       ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -207,6 +228,13 @@ function answerQuestion(question: string, locale: "en" | "ar") {
     return locale === "ar"
       ? `${routeName(mentioned, locale)}: ${routeDescription(mentioned, locale)} المخطط ${mentioned.plannedKm} كم، المنجز ${mentioned.completedKm} كم (${pct}%). المقاول: ${mentioned.contractor}. التوقع: ${formatForecast(mentioned.forecast, locale)}.`
       : `${routeName(mentioned, locale)}: ${routeDescription(mentioned, locale)} Planned ${mentioned.plannedKm} km, completed ${mentioned.completedKm} km (${pct}%). Contractor: ${mentioned.contractor}. Forecast: ${formatForecast(mentioned.forecast, locale)}.`;
+  }
+
+  if (text.includes("closest") || text.includes("nearest") || text.includes("completion") || text.includes("\u0627\u0644\u0623\u0642\u0631\u0628") || text.includes("\u0627\u0643\u062a\u0645\u0627\u0644")) {
+    const pct = Math.round((closest.completedKm / closest.plannedKm) * 100);
+    return locale === "ar"
+      ? `${routeName(closest, locale)} \u0647\u0648 \u0627\u0644\u0623\u0642\u0631\u0628 \u0644\u0644\u0627\u0643\u062a\u0645\u0627\u0644 \u0628\u0646\u0633\u0628\u0629 ${pct}%\u060c \u062d\u064a\u062b \u062a\u0645 \u0625\u0646\u062c\u0627\u0632 ${closest.completedKm} \u0643\u0645 \u0645\u0646 \u0623\u0635\u0644 ${closest.plannedKm} \u0643\u0645.`
+      : `${routeName(closest, locale)} is closest to completion at ${pct}%, with ${closest.completedKm} km completed out of ${closest.plannedKm} km.`;
   }
 
   if (text.includes("contractor") || text.includes("مقاول")) {

@@ -290,7 +290,8 @@ export const networkRoutes: NetworkRoute[] = [
 ];
 
 // Programme-level figures from the December 2025 progress highlight slide.
-// NOTE: confirm exact budget figures against the source deck before publishing.
+// Verified against page 2 of the December 2025 Progress Status deck:
+// "Approved budget is 1.7B against 4B needed."
 export const programme = {
   currency: "AED",
   approvedBudgetBn: 1.7,

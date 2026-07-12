@@ -47,7 +47,7 @@ function useChart(options: echarts.EChartsOption) {
   return ref;
 }
 
-export function ProgressChart() {
+export function ProgressChart({ height = 320 }: { height?: number } = {}) {
   const theme = useNetworkStore((state) => state.theme);
   const options = useMemo<echarts.EChartsOption>(() => {
     const col = axisColors(theme);
@@ -77,10 +77,10 @@ export function ProgressChart() {
     };
   }, [theme]);
   const ref = useChart(options);
-  return <div ref={ref} className="h-80 w-full" />;
+  return <div ref={ref} className="w-full" style={{ height }} />;
 }
 
-export function DeliveryCurve() {
+export function DeliveryCurve({ height = 288 }: { height?: number } = {}) {
   const { theme, locale } = useNetworkStore();
   const options = useMemo<echarts.EChartsOption>(() => {
     const col = axisColors(theme);
@@ -152,10 +152,10 @@ export function DeliveryCurve() {
     };
   }, [theme, locale]);
   const ref = useChart(options);
-  return <div ref={ref} className="h-72 w-full" />;
+  return <div ref={ref} className="w-full" style={{ height }} />;
 }
 
-export function LengthChart() {
+export function LengthChart({ height = 320 }: { height?: number } = {}) {
   const theme = useNetworkStore((state) => state.theme);
   const options = useMemo<echarts.EChartsOption>(() => {
     const col = axisColors(theme);
@@ -180,5 +180,5 @@ export function LengthChart() {
     };
   }, [theme]);
   const ref = useChart(options);
-  return <div ref={ref} className="h-80 w-full" />;
+  return <div ref={ref} className="w-full" style={{ height }} />;
 }
