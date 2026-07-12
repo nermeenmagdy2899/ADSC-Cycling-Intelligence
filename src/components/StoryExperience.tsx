@@ -26,6 +26,13 @@ type StoryStep = {
 };
 
 const allTypes: RouteType[] = ["type-01", "type-02", "type-03", "hsct"];
+const visibleStoryStepIds = ["vision", "principles", "strategy", "network", "progress", "future"] as const;
+const mergedStoryStepIds: Partial<Record<(typeof visibleStoryStepIds)[number], string>> = {
+  vision: "value",
+  principles: "users",
+  strategy: "route-types",
+  future: "ask"
+};
 
 const storySteps: StoryStep[] = [
   {
@@ -158,14 +165,22 @@ export function StoryExperience() {
   const reduceMotion = useReducedMotion();
   const { selectedRouteId, setSelectedRouteId, setSoloRouteId, setVisibleTypes, setPlayback, locale, tour, setTour, presenter, setPresenter } = useNetworkStore();
   const c = uiCopy[locale];
-  const localizedSteps = useMemo(
-    () =>
-      storySteps.map((step) => ({
+  const localizedSteps = useMemo(() => {
+    const copy = storyText[locale];
+    return visibleStoryStepIds.map((id) => {
+      const step = storySteps.find((item) => item.id === id)!;
+      const primary = copy.find((item) => item.id === id);
+      const companionId = mergedStoryStepIds[id];
+      const companion = companionId ? copy.find((item) => item.id === companionId) : undefined;
+      return {
         ...step,
-        ...(storyText[locale].find((item) => item.id === step.id) ?? {})
-      })),
-    [locale]
-  );
+        ...primary,
+        eyebrow: companion ? `${primary?.eyebrow} · ${companion.eyebrow}` : primary?.eyebrow ?? step.eyebrow,
+        body: companion ? `${primary?.body} ${companion.body}` : primary?.body ?? step.body,
+        source: companion ? `${primary?.source} · ${companion.source}` : primary?.source ?? step.source
+      };
+    });
+  }, [locale]);
 
   const totals = useMemo(() => {
     const planned = networkRoutes.reduce((sum, route) => sum + route.plannedKm, 0);
@@ -202,11 +217,6 @@ export function StoryExperience() {
 
   const activateStep = (step: StoryStep) => {
     setActiveStepId(step.id);
-    // Each chapter drives the map: fly to its route and spotlight its route families.
-    setSelectedRouteId(step.routeId);
-    setVisibleTypes(step.visibleTypes);
-    setSoloRouteId(null);
-    setPlayback("playing");
   };
 
   const goToStep = (step: StoryStep) => {
@@ -288,27 +298,24 @@ export function StoryExperience() {
   const renderActivePreview = () => {
     switch (activeStep.id) {
       case "vision":
-        return <NetworkGlobe locale={locale} />;
-      case "value":
-        return <ValueBeat locale={locale} />;
+        return <div className="story-merged-preview"><NetworkGlobe locale={locale} /><ValueBeat locale={locale} /></div>;
       case "principles":
-        return <PrinciplesPreview locale={locale} />;
-      case "users":
-        return <UserGroupPreview locale={locale} />;
+        return <div className="story-merged-preview"><PrinciplesPreview locale={locale} /><UserGroupPreview locale={locale} /></div>;
       case "strategy":
-        return <NetworkStrategyPreview locale={locale} />;
-      case "route-types":
         return (
-          <RouteTypePreview
-            locale={locale}
-            onSelectType={(type) => {
-              const firstRoute = networkRoutes.find((route) => route.type === type);
-              setSoloRouteId(null);
-              setVisibleTypes([type]);
-              if (firstRoute) setSelectedRouteId(firstRoute.id);
-              setPlayback("playing");
-            }}
-          />
+          <div className="story-merged-preview">
+            <NetworkStrategyPreview locale={locale} />
+            <RouteTypePreview
+              locale={locale}
+              onSelectType={(type) => {
+                const firstRoute = networkRoutes.find((route) => route.type === type);
+                setSoloRouteId(null);
+                setVisibleTypes([type]);
+                if (firstRoute) setSelectedRouteId(firstRoute.id);
+                setPlayback("playing");
+              }}
+            />
+          </div>
         );
       case "network":
         return (
@@ -326,14 +333,11 @@ export function StoryExperience() {
         return <ExecutiveDashboard locale={locale} />;
       case "future":
         return (
-          <>
+          <div className="story-merged-preview">
             <ForecastTimeline key={`timeline-${activeStep.id}`} locale={locale} />
-            <MilestonePreview locale={locale} />
-            <CompletionInsights locale={locale} />
-          </>
+            <TheAsk locale={locale} />
+          </div>
         );
-      case "ask":
-        return <TheAsk locale={locale} />;
       default:
         return null;
     }

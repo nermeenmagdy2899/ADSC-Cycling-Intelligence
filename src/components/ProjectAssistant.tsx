@@ -193,7 +193,11 @@ function buildProjectContext(locale: "en" | "ar") {
     milestones,
     planningPrinciples: strategyPrinciples.map((item) => item.title),
     designPrinciples,
-    userGroups: personas.map((persona) => ({ name: personaAr[persona.name]?.name ?? persona.name, requirements: persona.requirements })),
+    userGroups: personas.map((persona) => ({
+      name: locale === "ar" ? personaAr[persona.name]?.name ?? persona.name : persona.name,
+      summary: persona.summary,
+      requirements: locale === "ar" ? personaAr[persona.name]?.requirements ?? persona.requirements : persona.requirements
+    })),
     routeTypes: (["type-01", "type-02", "type-03", "hsct"] as const).map((type) => ({ name: routeTypeName[locale][type], description: routeTypeDescription[locale][type] }))
   };
 }
@@ -216,6 +220,10 @@ function findMentionedRoute(question: string) {
 function answerQuestion(question: string, locale: "en" | "ar") {
   const text = question.toLowerCase();
   const mentioned = findMentionedRoute(question);
+  const mentionedPersona = personas.find((persona) => {
+    const localizedName = personaAr[persona.name]?.name ?? "";
+    return text.includes(persona.name.toLowerCase()) || Boolean(localizedName && text.includes(localizedName.toLowerCase()));
+  });
   const totals = {
     planned: networkRoutes.reduce((sum, route) => sum + route.plannedKm, 0),
     completed: networkRoutes.reduce((sum, route) => sum + route.completedKm, 0)
@@ -228,6 +236,15 @@ function answerQuestion(question: string, locale: "en" | "ar") {
     return locale === "ar"
       ? `${routeName(mentioned, locale)}: ${routeDescription(mentioned, locale)} المخطط ${mentioned.plannedKm} كم، المنجز ${mentioned.completedKm} كم (${pct}%). المقاول: ${mentioned.contractor}. التوقع: ${formatForecast(mentioned.forecast, locale)}.`
       : `${routeName(mentioned, locale)}: ${routeDescription(mentioned, locale)} Planned ${mentioned.plannedKm} km, completed ${mentioned.completedKm} km (${pct}%). Contractor: ${mentioned.contractor}. Forecast: ${formatForecast(mentioned.forecast, locale)}.`;
+  }
+
+  if (mentionedPersona) {
+    const localized = personaAr[mentionedPersona.name];
+    const name = locale === "ar" ? localized?.name ?? mentionedPersona.name : mentionedPersona.name;
+    const requirements = locale === "ar" ? localized?.requirements ?? mentionedPersona.requirements : mentionedPersona.requirements;
+    return locale === "ar"
+      ? `${name}: فئة مستخدمين لها احتياجات محددة ضمن شبكة أبوظبي للدراجات. المتطلبات الرئيسية: ${requirements.join("، ")}.`
+      : `${name}: ${mentionedPersona.summary} Key network requirements: ${requirements.join(", ")}.`;
   }
 
   if (text.includes("closest") || text.includes("nearest") || text.includes("completion") || text.includes("\u0627\u0644\u0623\u0642\u0631\u0628") || text.includes("\u0627\u0643\u062a\u0645\u0627\u0644")) {
