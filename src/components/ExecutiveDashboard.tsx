@@ -136,15 +136,15 @@ export function ExecutiveDashboard({ locale }: { locale: "en" | "ar" }) {
           initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 14, filter: "blur(6px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8, filter: "blur(4px)" }}
-          transition={{ duration: reduceMotion ? 0.1 : 0.28, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: reduceMotion ? 0.1 : 0.42, ease: [0.16, 1, 0.3, 1] }}
         >
           {view === "overview" ? (
             <>
               <div className="dashboard-kpi-grid">
-                <DashboardKpi icon={Waypoints} label={t.planned} value={totals.planned} suffix=" km" decimals={1} />
-                <DashboardKpi icon={CheckCircle2} label={t.completed} value={totals.completed} suffix=" km" decimals={1} />
-                <DashboardKpi icon={Timer} label={t.remaining} value={totals.remaining} suffix=" km" decimals={1} />
-                <DashboardKpi icon={BarChart3} label={t.completion} value={totals.percent} suffix="%" />
+                <DashboardKpi index={0} icon={Waypoints} label={t.planned} value={totals.planned} suffix=" km" decimals={1} />
+                <DashboardKpi index={1} icon={CheckCircle2} label={t.completed} value={totals.completed} suffix=" km" decimals={1} />
+                <DashboardKpi index={2} icon={Timer} label={t.remaining} value={totals.remaining} suffix=" km" decimals={1} />
+                <DashboardKpi index={3} icon={BarChart3} label={t.completion} value={totals.percent} suffix="%" />
               </div>
               <div className="dashboard-overview-grid">
                 <section className="dashboard-insight-card">
@@ -230,8 +230,20 @@ export function ExecutiveDashboard({ locale }: { locale: "en" | "ar" }) {
   );
 }
 
-function DashboardKpi({ icon: Icon, label, value, suffix, decimals = 0 }: { icon: typeof Waypoints; label: string; value: number; suffix: string; decimals?: number }) {
-  return <div className="dashboard-kpi"><Icon className="h-5 w-5" /><span>{label}</span><strong><CountUp value={value} decimals={decimals} suffix={suffix} /></strong></div>;
+function DashboardKpi({ icon: Icon, label, value, suffix, decimals = 0, index }: { icon: typeof Waypoints; label: string; value: number; suffix: string; decimals?: number; index: number }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      className="dashboard-kpi"
+      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.94 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: reduceMotion ? 0.1 : 0.48, delay: reduceMotion ? 0 : 0.08 + index * 0.08, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <Icon className="h-6 w-6" />
+      <span>{label}</span>
+      <strong><CountUp value={value} decimals={decimals} suffix={suffix} /></strong>
+    </motion.div>
+  );
 }
 
 function BudgetRow({ label, value, max, tone = "default" }: { label: string; value: number; max: number; tone?: "default" | "risk" }) {

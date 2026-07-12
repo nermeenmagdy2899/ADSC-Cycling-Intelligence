@@ -4,7 +4,7 @@ import { BarChart3, Bike, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight,
 import type { LucideIcon } from "lucide-react";
 import { DeliveryCurve, LengthChart, ProgressChart } from "./Charts";
 import { CountUp } from "./CountUp";
-import { BudgetGauge, ForecastTimeline, StructuresContractors } from "./ExecDataviz";
+import { ForecastTimeline, StructuresContractors } from "./ExecDataviz";
 import { NetworkMap } from "./NetworkMap";
 import { ExecutiveDashboard } from "./ExecutiveDashboard";
 import { designPrinciples, milestones, networkRoutes, personas, programme, strategyPrinciples } from "../data/network";
@@ -840,7 +840,6 @@ function TheAsk({ locale }: { locale: "en" | "ar" }) {
           </div>
         ))}
       </div>
-      <BudgetGauge locale={locale} />
     </div>
   );
 }
