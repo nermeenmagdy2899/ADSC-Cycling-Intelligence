@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
 import type { FeatureCollection, LineString, Polygon } from "geojson";
 import mapboxgl from "mapbox-gl";
-import { Bike, Camera, Layers3, Maximize2, Pause, Play, RotateCcw, Satellite, Search, X } from "lucide-react";
+import { Bike, Camera, Layers3, Maximize2, MonitorPlay, Pause, Play, RotateCcw, Satellite, Search, Square, X, ZoomIn, ZoomOut } from "lucide-react";
 import { networkRoutes } from "../data/network";
 import type { RouteType } from "../data/network";
 import { formatForecast, mapPlaceNames, routeDescription, routeLabel, routeLabels, routeName, routeTypeDescription, routeTypeName, statusText, uiCopy } from "../i18n";
@@ -58,6 +58,14 @@ const overlayBounds = {
   maxLat: 24.9
 };
 
+const allRouteTypes: RouteType[] = ["type-01", "type-02", "type-03", "hsct"];
+
+type CameraCommand = {
+  type: "zoom-in" | "zoom-out" | "reset" | "fit-route";
+  routeId?: string;
+  nonce: number;
+};
+
 function projectOverlayPoint([lng, lat]: [number, number]) {
   const x = ((lng - overlayBounds.minLng) / (overlayBounds.maxLng - overlayBounds.minLng)) * 1000;
   const y = 620 - ((lat - overlayBounds.minLat) / (overlayBounds.maxLat - overlayBounds.minLat)) * 620;
@@ -76,7 +84,8 @@ export function NetworkMap({ variant = "full" }: { variant?: "full" | "story" })
   const [mapMode, setMapMode] = useState<"streets" | "satellite">("streets");
   const [search, setSearch] = useState("");
   const [restartKey, setRestartKey] = useState(0);
-  const { selectedRouteId, setSelectedRouteId, soloRouteId, setSoloRouteId, visibleTypes, toggleType, playback, setPlayback, speed, setSpeed, theme, locale, tour, setTour } = useNetworkStore();
+  const [cameraCommand, setCameraCommand] = useState<CameraCommand>({ type: "reset", nonce: 0 });
+  const { selectedRouteId, setSelectedRouteId, soloRouteId, setSoloRouteId, visibleTypes, setVisibleTypes, toggleType, playback, setPlayback, speed, setSpeed, theme, locale, tour, setTour, presenter, setPresenter } = useNetworkStore();
   const c = uiCopy[locale];
   const selected = networkRoutes.find((route) => route.id === selectedRouteId) ?? networkRoutes[0];
   const selectRoute = useCallback(
@@ -112,6 +121,27 @@ export function NetworkMap({ variant = "full" }: { variant?: "full" | "story" })
     [routeData]
   );
   const selectedPercent = Math.round((selected.completedKm / selected.plannedKm) * 100);
+  const commandCamera = (type: CameraCommand["type"], routeId?: string) =>
+    setCameraCommand((current) => ({ type, routeId, nonce: current.nonce + 1 }));
+
+  const focusLegendRoute = (routeId: string) => {
+    const route = networkRoutes.find((item) => item.id === routeId);
+    if (!route) return;
+    setTour(false);
+    setSoloRouteId(route.id);
+    setVisibleTypes([route.type]);
+    setSelectedRouteId(route.id);
+    setPlayback("playing");
+    setRestartKey((current) => current + 1);
+    commandCamera("fit-route", route.id);
+  };
+
+  const resetNetworkView = () => {
+    setTour(false);
+    setSoloRouteId(null);
+    setVisibleTypes(allRouteTypes);
+    commandCamera("reset");
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -310,6 +340,7 @@ export function NetworkMap({ variant = "full" }: { variant?: "full" | "story" })
     <div
       ref={mapStageRef}
       className={`gis-map-stage ${theme === "light" ? "is-light" : ""}`}
+      data-lenis-prevent
       onMouseMove={(event) => {
         const rect = event.currentTarget.getBoundingClientRect();
         event.currentTarget.style.setProperty("--mx", `${((event.clientX - rect.left) / rect.width) * 100}%`);
@@ -320,6 +351,7 @@ export function NetworkMap({ variant = "full" }: { variant?: "full" | "story" })
       <div className="map-ambient-field" aria-hidden="true" />
       <div className="map-scan-ribbon" aria-hidden="true" />
       <GeoJsonRouteOverlay
+        cameraCommand={cameraCommand}
         hoveredRouteId={hoveredRouteId}
         onHover={setHoveredRouteId}
         locale={locale}
@@ -335,6 +367,37 @@ export function NetworkMap({ variant = "full" }: { variant?: "full" | "story" })
         theme={theme}
         zoomEnabled={variant === "story" || !mapboxgl.accessToken}
       />
+      {variant === "story" ? (
+        <>
+          <div className="map-action-controls" aria-label={c.networkMap}>
+            <button className={`map-glass-control ${tour ? "is-active" : ""}`} onClick={() => setTour(!tour)} aria-pressed={tour}>
+              {tour ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              <span>{tour ? c.stopTour : c.flyNetwork}</span>
+            </button>
+            <button className={`map-glass-control ${presenter ? "is-active" : ""}`} onClick={() => setPresenter(!presenter)} aria-pressed={presenter}>
+              <MonitorPlay className="h-4 w-4" />
+              <span>{presenter ? c.exitPresenter : c.presenterMode}</span>
+            </button>
+          </div>
+          <div className="map-zoom-controls" aria-label={c.networkMap}>
+            <button onClick={() => commandCamera("zoom-in")} aria-label={c.zoomIn} title={c.zoomIn}><ZoomIn className="h-4 w-4" /></button>
+            <button onClick={() => commandCamera("zoom-out")} aria-label={c.zoomOut} title={c.zoomOut}><ZoomOut className="h-4 w-4" /></button>
+            <button onClick={resetNetworkView} aria-label={c.resetView} title={c.resetView}><RotateCcw className="h-4 w-4" /></button>
+          </div>
+          <div className="map-track-legend" role="group" aria-label={c.trackLegend}>
+            <button className={!soloRouteId ? "is-active" : ""} onClick={resetNetworkView} aria-pressed={!soloRouteId}>
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>{c.showAllRoutes}</span>
+            </button>
+            {networkRoutes.map((route) => (
+              <button key={route.id} className={soloRouteId === route.id ? "is-active" : ""} onClick={() => focusLegendRoute(route.id)} aria-pressed={soloRouteId === route.id}>
+                <i style={{ background: route.color }} />
+                <span>{routeLabel(route, locale)}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      ) : null}
       {tour ? (
         <div className="tour-hud" role="status">
           <span className="tour-live">
@@ -376,23 +439,7 @@ export function NetworkMap({ variant = "full" }: { variant?: "full" | "story" })
   );
 
   if (variant === "story") {
-    return (
-      <div className="story-map-frame">
-        {mapStage}
-        <div className="story-map-footer">
-          <div>
-            <p>{statusText[locale][selected.status]}</p>
-            <strong>{routeName(selected, locale)}</strong>
-          </div>
-          <div>
-            <span>{selectedPercent}% {c.complete}</span>
-            <div className="h-1.5 w-32 overflow-hidden rounded-full bg-white/10">
-              <div className="h-full rounded-full" style={{ width: `${selectedPercent}%`, background: selected.color }} />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <div className="story-map-frame">{mapStage}</div>;
   }
 
   return (
@@ -528,6 +575,7 @@ export function NetworkMap({ variant = "full" }: { variant?: "full" | "story" })
 }
 
 function GeoJsonRouteOverlay({
+  cameraCommand,
   hoveredRouteId,
   locale,
   onHover,
@@ -543,6 +591,7 @@ function GeoJsonRouteOverlay({
   theme,
   zoomEnabled = false
 }: {
+  cameraCommand: CameraCommand;
   hoveredRouteId: string | null;
   locale: "en" | "ar";
   onHover: (id: string | null) => void;
@@ -563,14 +612,68 @@ function GeoJsonRouteOverlay({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const cameraRef = useRef({ x: 0, y: 0, w: 1000, h: 620 });
   const cameraRafRef = useRef(0);
+  const userInteractingRef = useRef(false);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const dragRef = useRef<{ pointerId: number; x: number; y: number; camera: { x: number; y: number; w: number; h: number } } | null>(null);
+  const pinchRef = useRef<{ distance: number; camera: { x: number; y: number; w: number; h: number }; u: number; v: number; worldX: number; worldY: number } | null>(null);
+  const suppressClickRef = useRef(false);
+  const [isPanning, setIsPanning] = useState(false);
+
+  const clampManualView = (view: { x: number; y: number; w: number; h: number }) => {
+    const width = Math.max(1000 / 6, Math.min(1000, view.w));
+    const height = Math.max(620 / 6, Math.min(620, view.h));
+    return {
+      x: Math.max(0, Math.min(1000 - width, view.x)),
+      y: Math.max(0, Math.min(620 - height, view.y)),
+      w: width,
+      h: height
+    };
+  };
+
+  const applyManualView = (view: { x: number; y: number; w: number; h: number }) => {
+    const next = clampManualView(view);
+    cameraRef.current = next;
+    svgRef.current?.setAttribute("viewBox", `${next.x.toFixed(1)} ${next.y.toFixed(1)} ${next.w.toFixed(1)} ${next.h.toFixed(1)}`);
+  };
+
+  const zoomAt = (factor: number, clientX: number, clientY: number) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    cancelAnimationFrame(cameraRafRef.current);
+    const rect = svg.getBoundingClientRect();
+    const current = cameraRef.current;
+    const u = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const v = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    const worldX = current.x + u * current.w;
+    const worldY = current.y + v * current.h;
+    applyManualView({
+      x: worldX - u * current.w * factor,
+      y: worldY - v * current.h * factor,
+      w: current.w * factor,
+      h: current.h * factor
+    });
+  };
 
   // Cinematic camera: tween the SVG viewBox toward the selected route's
   // padded bounding box (clamped so zoom stays modest and labels readable).
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
+    if (cameraCommand.type === "zoom-in" || cameraCommand.type === "zoom-out") {
+      if (!cameraCommand.nonce) return;
+      userInteractingRef.current = true;
+      const rect = svg.getBoundingClientRect();
+      zoomAt(cameraCommand.type === "zoom-in" ? 0.78 : 1.28, rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return;
+    }
+    const commandOverridesUser = cameraCommand.nonce > 0 && (cameraCommand.type === "fit-route" || cameraCommand.type === "reset");
+    if (userInteractingRef.current && !commandOverridesUser) return;
+    if (commandOverridesUser) userInteractingRef.current = false;
     let target = { x: 0, y: 0, w: 1000, h: 620 };
-    const route = zoomEnabled ? routes.find((item) => item.id === selectedRouteId) : undefined;
+    const fitRouteRequested = cameraCommand.nonce > 0 && cameraCommand.type === "fit-route" && cameraCommand.routeId;
+    const resetRequested = cameraCommand.nonce > 0 && cameraCommand.type === "reset";
+    const routeId = fitRouteRequested ? cameraCommand.routeId! : selectedRouteId;
+    const route = zoomEnabled && !resetRequested ? routes.find((item) => item.id === routeId) : undefined;
     if (route) {
       const points = route.coordinates.map((coordinate) => projectOverlayPoint(coordinate));
       const xs = points.map((point) => point[0]);
@@ -632,7 +735,7 @@ function GeoJsonRouteOverlay({
     const DURATION = 950;
     const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
     const tick = (now: number) => {
-      const progress = Math.min(1, (now - start) / DURATION);
+      const progress = Math.min(1, Math.max(0, (now - start) / DURATION));
       const eased = ease(progress);
       apply({
         x: from.x + (target.x - from.x) * eased,
@@ -644,7 +747,94 @@ function GeoJsonRouteOverlay({
     };
     cameraRafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(cameraRafRef.current);
-  }, [selectedRouteId, routes, zoomEnabled]);
+  }, [selectedRouteId, routes, zoomEnabled, cameraCommand.nonce]);
+
+  const handlePointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    cancelAnimationFrame(cameraRafRef.current);
+    userInteractingRef.current = true;
+    suppressClickRef.current = false;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    setIsPanning(true);
+    if (pointersRef.current.size === 1) {
+      dragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, camera: { ...cameraRef.current } };
+    } else if (pointersRef.current.size === 2) {
+      const [a, b] = [...pointersRef.current.values()];
+      const rect = event.currentTarget.getBoundingClientRect();
+      const midX = (a.x + b.x) / 2;
+      const midY = (a.y + b.y) / 2;
+      const u = (midX - rect.left) / rect.width;
+      const v = (midY - rect.top) / rect.height;
+      const camera = { ...cameraRef.current };
+      pinchRef.current = {
+        distance: Math.hypot(a.x - b.x, a.y - b.y),
+        camera,
+        u,
+        v,
+        worldX: camera.x + u * camera.w,
+        worldY: camera.y + v * camera.h
+      };
+      dragRef.current = null;
+    }
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (!pointersRef.current.has(event.pointerId)) return;
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointersRef.current.size === 2 && pinchRef.current) {
+      const [a, b] = [...pointersRef.current.values()];
+      const distance = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+      const start = pinchRef.current;
+      const factor = start.distance / distance;
+      applyManualView({
+        x: start.worldX - start.u * start.camera.w * factor,
+        y: start.worldY - start.v * start.camera.h * factor,
+        w: start.camera.w * factor,
+        h: start.camera.h * factor
+      });
+      suppressClickRef.current = true;
+      return;
+    }
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    if (Math.abs(dx) + Math.abs(dy) > 4) suppressClickRef.current = true;
+    applyManualView({
+      ...drag.camera,
+      x: drag.camera.x - dx * (drag.camera.w / rect.width),
+      y: drag.camera.y - dy * (drag.camera.h / rect.height)
+    });
+  };
+
+  const handlePointerEnd = (event: ReactPointerEvent<SVGSVGElement>) => {
+    pointersRef.current.delete(event.pointerId);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    pinchRef.current = null;
+    if (pointersRef.current.size === 1) {
+      const [pointerId, point] = [...pointersRef.current.entries()][0];
+      dragRef.current = { pointerId, x: point.x, y: point.y, camera: { ...cameraRef.current } };
+    } else {
+      dragRef.current = null;
+      setIsPanning(false);
+    }
+  };
+
+  const handleWheel = (event: ReactWheelEvent<SVGSVGElement>) => {
+    userInteractingRef.current = true;
+    const factor = Math.max(0.78, Math.min(1.28, Math.exp(event.deltaY * 0.0015)));
+    zoomAt(factor, event.clientX, event.clientY);
+  };
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const preventPageScroll = (event: WheelEvent) => event.preventDefault();
+    svg.addEventListener("wheel", preventPageScroll, { passive: false });
+    return () => svg.removeEventListener("wheel", preventPageScroll);
+  }, []);
   const mapBase = light
     ? {
         background: "#eef3fb",
@@ -681,7 +871,19 @@ function GeoJsonRouteOverlay({
         patternOpacity: 0.055
       };
   return (
-    <svg ref={svgRef} className="absolute inset-0 z-[1] h-full w-full" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid slice" role="img" aria-label="ADCN GeoJSON route overlay">
+    <svg
+      ref={svgRef}
+      className={`geojson-map-surface absolute inset-0 z-[1] h-full w-full ${isPanning ? "is-panning" : ""}`}
+      viewBox="0 0 1000 620"
+      preserveAspectRatio="xMidYMid slice"
+      role="img"
+      aria-label={locale === "ar" ? "خريطة مسارات شبكة أبوظبي للدراجات" : "Abu Dhabi Cycling Network route map"}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onWheel={handleWheel}
+    >
       <defs>
         <filter id="geojson-route-glow" x="-30%" y="-30%" width="160%" height="160%">
           <feGaussianBlur stdDeviation="5" result="blur" />
@@ -756,7 +958,16 @@ function GeoJsonRouteOverlay({
           const [startX, startY] = projectOverlayPoint(route.coordinates[0]);
           const [endX, endY] = projectOverlayPoint(route.coordinates[route.coordinates.length - 1]);
           return (
-            <g key={route.id} onClick={() => onSelect(route.id)} onMouseEnter={() => onHover(route.id)} onMouseLeave={() => onHover(null)} className="cursor-pointer">
+            <g
+              key={route.id}
+              onClick={() => {
+                if (!suppressClickRef.current) onSelect(route.id);
+                suppressClickRef.current = false;
+              }}
+              onMouseEnter={() => onHover(route.id)}
+              onMouseLeave={() => onHover(null)}
+              className="cursor-pointer"
+            >
               <path className="geojson-route-glow" d={route.path} fill="none" stroke={route.color} strokeLinecap="round" strokeLinejoin="round" strokeOpacity={glowOpacity} strokeWidth={selected ? 26 : hovered ? 20 : 14} filter="url(#geojson-route-glow)" vectorEffect="non-scaling-stroke" />
               <path className="geojson-route-line" d={route.path} fill="none" stroke={route.color} strokeLinecap="round" strokeLinejoin="round" strokeOpacity={routeOpacity} strokeWidth={selected ? 8 : hovered ? 6.5 : 4.8} vectorEffect="non-scaling-stroke" />
               <circle cx={startX} cy={startY} r={selected ? 7 : 5} fill={light ? "#eef3fb" : "#02040a"} stroke={route.color} strokeWidth="3" />
@@ -764,8 +975,8 @@ function GeoJsonRouteOverlay({
               {selected ? <circle className="route-head-pulse" cx={endX} cy={endY} r="10" fill="none" stroke={route.color} strokeWidth="2" /> : null}
               {(selected || hovered) ? (
                 <g transform={`translate(${endX + 12} ${endY - 12})`}>
-                  <rect width={(routeLabels[locale][route.id] ?? route.label).length * 7.4 + 20} height="28" rx="6" fill="rgba(7,17,15,0.82)" stroke={route.color} strokeOpacity="0.55" />
-                  <text x="10" y="18" fill="#ffffff" fontSize="11" fontWeight="700">{routeLabels[locale][route.id] ?? route.label}</text>
+                  <rect width={(routeLabels[locale][route.id] ?? route.label).length * 7.4 + 20} height="28" rx="6" fill={light ? "rgba(255,255,255,0.9)" : "rgba(7,13,24,0.88)"} stroke={route.color} strokeOpacity="0.65" />
+                  <text x="10" y="18" fill={light ? "#0a1626" : "#eef4fc"} fontSize="11" fontWeight="700">{routeLabels[locale][route.id] ?? route.label}</text>
                 </g>
               ) : null}
               {selected ? (

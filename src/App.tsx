@@ -30,7 +30,6 @@ import { NetworkMap } from "./components/NetworkMap";
 import { StoryExperience } from "./components/StoryExperience";
 import { AmbientBackground } from "./components/AmbientBackground";
 import { ProjectAssistant } from "./components/ProjectAssistant";
-import { EvidenceSource } from "./components/EvidenceSource";
 import { Preloader } from "./components/Preloader";
 import {
   dashboardIcons,
@@ -233,20 +232,14 @@ export default function App() {
         </div>
       ) : null}
       <AmbientBackground />
-      <Header
-        locale={locale}
-        languageLabel={t.language}
-        theme={theme}
-        toggleLanguage={() => setLocale(locale === "en" ? "ar" : "en")}
-        toggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
-      />
       <Hero
         locale={locale}
         t={t}
         theme={theme}
+        toggleLanguage={() => setLocale(locale === "en" ? "ar" : "en")}
+        toggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
       />
       <StoryExperience />
-      <EvidenceSource />
       <ProjectAssistant />
 
       {false && (
@@ -560,59 +553,31 @@ export default function App() {
   );
 }
 
-function Header({
+function Hero({
   locale,
-  languageLabel,
+  t,
   theme,
   toggleLanguage,
   toggleTheme
 }: {
   locale: "en" | "ar";
-  languageLabel: string;
+  t: (typeof copy)["en"];
   theme: string;
   toggleLanguage: () => void;
   toggleTheme: () => void;
 }) {
-  return (
-    <header className="app-header sticky left-0 right-0 top-0 z-50 px-4 py-3">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-        <a href="#hero" className="adsc-brand" aria-label="Abu Dhabi Sports Council Cycling Network">
-          <img src={theme === "dark" ? "/images/adsc-logo-white-official.svg" : "/images/adsc-logo-official.svg"} alt="Abu Dhabi Sports Council" />
-          <span className="sr-only">Abu Dhabi Sports Council</span>
-        </a>
-        <nav className="hidden items-center gap-1 lg:flex">
-          {nav.map((item) => (
-            <a className="nav-link" href={`#${item.toLowerCase()}`} key={item}>
-              {locale === "ar" ? navAr[item] : item}
-            </a>
-          ))}
-        </nav>
-        <div className="display-controls" aria-label={uiCopy[locale].displayOptions}>
-          <button className="display-control" aria-label={`${uiCopy[locale].language}: ${languageLabel}`} title={uiCopy[locale].language} onClick={toggleLanguage}>
-            <Languages className="h-4 w-4" />
-            <span>{languageLabel}</span>
-          </button>
-          <button className="display-control is-icon" aria-label={theme === "dark" ? uiCopy[locale].lightMode : uiCopy[locale].darkMode} title={theme === "dark" ? uiCopy[locale].lightMode : uiCopy[locale].darkMode} onClick={toggleTheme}>
-            {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function Hero({
-  locale,
-  t,
-  theme
-}: {
-  locale: "en" | "ar";
-  t: (typeof copy)["en"];
-  theme: string;
-}) {
   const sectionRef = useRef<HTMLElement | null>(null);
   return (
     <section id="hero" ref={sectionRef} className="hero">
+      <div className="hero-display-controls display-controls" aria-label={uiCopy[locale].displayOptions}>
+        <button className="display-control" aria-label={`${uiCopy[locale].language}: ${t.language}`} title={uiCopy[locale].language} onClick={toggleLanguage}>
+          <Languages className="h-4 w-4" />
+          <span>{t.language}</span>
+        </button>
+        <button className="display-control is-icon" aria-label={theme === "dark" ? uiCopy[locale].lightMode : uiCopy[locale].darkMode} title={theme === "dark" ? uiCopy[locale].lightMode : uiCopy[locale].darkMode} onClick={toggleTheme}>
+          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </button>
+      </div>
       <div className="hero-map-grid" />
       <div className="hero-hover-field" aria-hidden="true">
         {Array.from({ length: 9 }).map((_, index) => (

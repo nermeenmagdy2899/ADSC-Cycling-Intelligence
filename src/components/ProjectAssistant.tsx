@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, MessageCircle, Send, Sparkles, X } from "lucide-react";
+import { Bot, BrainCircuit, LoaderCircle, MessageCircle, Send, Sparkles, X } from "lucide-react";
 import { designPrinciples, milestones, networkRoutes, personas, strategyPrinciples } from "../data/network";
 import { formatForecast, personaAr, routeDescription, routeLabel, routeName, routeTypeDescription, routeTypeName, uiCopy } from "../i18n";
 import { useNetworkStore } from "../store/useNetworkStore";
@@ -26,10 +26,11 @@ const suggestions = {
 };
 
 export function ProjectAssistant() {
-  const { locale, setSelectedRouteId, setPlayback } = useNetworkStore();
+  const { locale, setSelectedRouteId, setSoloRouteId, setPlayback } = useNetworkStore();
   const c = uiCopy[locale];
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
+  const [thinking, setThinking] = useState(false);
   const dockRef = useRef<HTMLDivElement | null>(null);
   const closeAssistant = useCallback(() => setOpen(false), []);
   useClickOutside(dockRef, closeAssistant, open);
@@ -57,18 +58,34 @@ export function ProjectAssistant() {
 
   const highlighted = useMemo(() => networkRoutes.find((route) => route.forecast.includes("2026")) ?? networkRoutes[0], []);
 
-  const ask = (question: string) => {
+  const ask = async (question: string) => {
     const clean = question.trim();
-    if (!clean) return;
-    const answer = answerQuestion(clean, locale);
+    if (!clean || thinking) return;
     const route = findMentionedRoute(clean);
     if (route) {
       setSelectedRouteId(route.id);
+      setSoloRouteId(route.id);
       setPlayback("playing");
     }
-    setMessages((current) => [...current, { role: "user", text: clean }, { role: "assistant", text: answer }]);
+    setMessages((current) => [...current, { role: "user", text: clean }]);
     setPrompt("");
     setOpen(true);
+    setThinking(true);
+    try {
+      const response = await fetch("/api/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: clean, locale, context: buildProjectContext(locale) })
+      });
+      if (!response.ok) throw new Error("assistant unavailable");
+      const payload = (await response.json()) as { answer?: string };
+      if (!payload.answer) throw new Error("empty assistant response");
+      setMessages((current) => [...current, { role: "assistant", text: payload.answer! }]);
+    } catch {
+      setMessages((current) => [...current, { role: "assistant", text: answerQuestion(clean, locale) }]);
+    } finally {
+      setThinking(false);
+    }
   };
 
   const onSubmit = (event: FormEvent) => {
@@ -86,7 +103,7 @@ export function ProjectAssistant() {
         <aside className="assistant-panel" role="dialog" aria-label={c.assistant}>
           <div className="assistant-header">
             <div className="assistant-orb">
-              <Bot className="h-5 w-5" />
+              <BrainCircuit className="h-5 w-5" />
             </div>
             <div>
               <p>{c.assistant}</p>
@@ -108,6 +125,12 @@ export function ProjectAssistant() {
                 {message.text}
               </div>
             ))}
+            {thinking ? (
+              <div className="assistant-message assistant is-thinking" role="status">
+                <LoaderCircle className="h-4 w-4" />
+                <span>{locale === "ar" ? "Ø¬Ø§Ø±Ù ØªØ­Ù„ÙŠÙ„ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„Ù…Ø´Ø±ÙˆØ¹" : "Analysing project intelligence"}</span>
+              </div>
+            ) : null}
           </div>
           <div className="assistant-suggestions">
             <span>{c.suggested}</span>
@@ -118,8 +141,8 @@ export function ProjectAssistant() {
             ))}
           </div>
           <form className="assistant-form" onSubmit={onSubmit}>
-            <input value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={c.askPlaceholder} />
-            <button aria-label={c.send} type="submit">
+            <input value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder={c.askPlaceholder} disabled={thinking} aria-label={c.askPlaceholder} />
+            <button aria-label={c.send} type="submit" disabled={thinking || !prompt.trim()}>
               <Send className="h-4 w-4" />
             </button>
           </form>
@@ -127,6 +150,31 @@ export function ProjectAssistant() {
       ) : null}
     </div>
   );
+}
+
+function buildProjectContext(locale: "en" | "ar") {
+  const routeRows = networkRoutes.map((route) => ({
+    id: route.id,
+    name: routeName(route, locale),
+    label: routeLabel(route, locale),
+    description: routeDescription(route, locale),
+    type: routeTypeName[locale][route.type],
+    plannedKm: route.plannedKm,
+    completedKm: route.completedKm,
+    completionPct: Math.round((route.completedKm / route.plannedKm) * 100),
+    status: route.status,
+    contractor: route.contractor,
+    forecast: formatForecast(route.forecast, locale),
+    structures: route.structures
+  }));
+  return {
+    routes: routeRows,
+    milestones,
+    planningPrinciples: strategyPrinciples.map((item) => item.title),
+    designPrinciples,
+    userGroups: personas.map((persona) => ({ name: personaAr[persona.name]?.name ?? persona.name, requirements: persona.requirements })),
+    routeTypes: (["type-01", "type-02", "type-03", "hsct"] as const).map((type) => ({ name: routeTypeName[locale][type], description: routeTypeDescription[locale][type] }))
+  };
 }
 
 function findMentionedRoute(question: string) {

@@ -602,6 +602,144 @@ input:focus-visible {
     box-shadow: inset 0 0 80px rgba(var(--scrim), 0.18);
   }
 
+  .geojson-map-surface {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .geojson-map-surface.is-panning {
+    cursor: grabbing;
+  }
+
+  .map-action-controls,
+  .map-zoom-controls,
+  .map-track-legend {
+    position: absolute;
+    z-index: 24;
+  }
+
+  .map-action-controls {
+    top: 12px;
+    left: 12px;
+    display: flex;
+    gap: 8px;
+  }
+
+  :root:lang(ar) .map-action-controls {
+    right: 12px;
+    left: auto;
+  }
+
+  .map-glass-control,
+  .map-zoom-controls button,
+  .map-track-legend button {
+    min-width: 44px;
+    min-height: 44px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-surface-strong);
+    color: var(--fg);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(18px) saturate(155%);
+    -webkit-backdrop-filter: blur(18px) saturate(155%);
+    transition: transform var(--dur-fast) var(--ease-premium), border-color var(--dur-fast) ease, background var(--dur-fast) ease;
+  }
+
+  .map-glass-control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-radius: 10px;
+    padding: 0 12px;
+    font-size: 11px;
+    font-weight: 750;
+  }
+
+  .map-glass-control:hover,
+  .map-glass-control.is-active,
+  .map-zoom-controls button:hover,
+  .map-track-legend button:hover,
+  .map-track-legend button.is-active {
+    transform: translateY(-1px);
+    border-color: rgba(var(--gold-rgb), 0.62);
+    background: color-mix(in srgb, var(--glass-surface-strong) 72%, rgba(var(--gold-rgb), 0.22));
+  }
+
+  .map-zoom-controls {
+    top: 12px;
+    right: 12px;
+    display: grid;
+    gap: 6px;
+  }
+
+  :root:lang(ar) .map-zoom-controls {
+    right: auto;
+    left: 12px;
+  }
+
+  .map-zoom-controls button {
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+  }
+
+  .map-track-legend {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 6px;
+    background: color-mix(in srgb, var(--glass-surface-strong) 86%, transparent);
+    box-shadow: var(--glass-shadow);
+    scrollbar-width: none;
+    backdrop-filter: blur(20px) saturate(155%);
+    -webkit-backdrop-filter: blur(20px) saturate(155%);
+  }
+
+  .map-track-legend::-webkit-scrollbar {
+    display: none;
+  }
+
+  .map-track-legend button {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-radius: 8px;
+    padding: 0 10px;
+    font-size: 10px;
+    font-weight: 750;
+    white-space: nowrap;
+  }
+
+  .map-track-legend button i {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 9px;
+    border-radius: 999px;
+    box-shadow: 0 0 12px currentColor;
+  }
+
+  @media (max-width: 640px) {
+    .map-glass-control span {
+      display: none;
+    }
+
+    .map-glass-control {
+      padding: 0;
+    }
+
+    .map-track-legend button {
+      min-height: 42px;
+    }
+  }
+
   .gis-map-stage.is-light::after {
     border-color: rgba(var(--gold-rgb), 0.22);
     box-shadow: inset 0 0 70px rgba(var(--gold-rgb), 0.08);
@@ -1988,13 +2126,55 @@ input:focus-visible {
     color: var(--fg-subtle);
   }
 
-  .assistant-form button {
+.assistant-form button {
     display: grid;
     min-height: 44px;
     place-items: center;
     border-radius: 10px;
     background: var(--adsc-gold);
     color: var(--on-gold);
+  }
+
+  .assistant-message.is-thinking {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .assistant-message.is-thinking svg {
+    color: var(--adsc-gold);
+    animation: assistant-thinking 0.9s linear infinite;
+  }
+
+  .assistant-form button:disabled,
+  .assistant-form input:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
+  }
+}
+
+@keyframes assistant-thinking {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 640px) {
+  .assistant-dock {
+    right: 14px;
+    bottom: max(14px, env(safe-area-inset-bottom));
+  }
+
+  :root:lang(ar) .assistant-dock {
+    right: auto;
+    left: 14px;
+  }
+
+  .assistant-panel {
+    width: calc(100vw - 28px);
+    max-height: min(620px, calc(100dvh - 96px));
+  }
+
+  .assistant-messages {
+    max-height: 220px;
   }
 }
 
@@ -2961,7 +3141,7 @@ input:focus-visible {
 .tour-hud {
   position: absolute;
   left: 16px;
-  bottom: 16px;
+  bottom: 76px;
   z-index: 10;
   min-width: 240px;
   max-width: min(340px, calc(100% - 32px));
@@ -3050,5 +3230,456 @@ input:focus-visible {
   from {
     opacity: 0;
     transform: translateY(12px);
+  }
+}
+
+/* v1 refinement: single-screen executive story */
+.hero-display-controls {
+  position: absolute;
+  inset-block-start: max(18px, env(safe-area-inset-top));
+  inset-inline-end: max(18px, env(safe-area-inset-right));
+  z-index: 30;
+  display: flex;
+  gap: 10px;
+}
+
+.hero-display-controls .display-control {
+  min-height: 48px;
+  border: 1px solid rgba(var(--gold-rgb), 0.34);
+  background: color-mix(in srgb, var(--glass-surface-strong) 88%, transparent);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+}
+
+.story-top-chrome .story-kpi-bar {
+  position: relative;
+  top: auto;
+  margin-top: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.story-top-chrome .story-kpi {
+  min-height: 92px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.story-layout {
+  align-items: stretch;
+}
+
+.story-map-column,
+.story-content-column,
+.story-deck {
+  min-height: 0;
+}
+
+.story-map-column {
+  position: relative;
+  top: auto;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+.story-map-column .story-map-frame,
+.story-map-column .gis-map-stage,
+.story-deck {
+  height: clamp(580px, calc(100dvh - 210px), 780px);
+}
+
+.story-map-column .gis-map-stage {
+  min-height: 100%;
+}
+
+.story-content-column {
+  padding-bottom: 0;
+}
+
+.story-deck {
+  display: grid;
+  grid-template-rows: 28px minmax(0, 1fr) 64px;
+}
+
+.story-deck-route {
+  margin-bottom: 0;
+}
+
+.story-panel {
+  min-height: 0;
+  max-height: none;
+  height: 100%;
+  overflow: hidden;
+  padding: clamp(18px, 2.2vw, 30px);
+}
+
+.story-panel-content {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.story-panel h3 {
+  margin-top: 14px;
+  font-size: clamp(1.85rem, 2.35vw, 3.1rem);
+  line-height: 1.04;
+}
+
+.story-panel-content > p {
+  margin-top: 12px;
+  font-size: clamp(0.92rem, 1.05vw, 1.08rem);
+  line-height: 1.55;
+}
+
+.story-panel-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.story-panel-meta .story-source-note,
+.story-panel-meta .story-panel-metric {
+  margin-top: 0;
+  min-height: 56px;
+}
+
+.story-panel-meta .story-source-note {
+  width: 100%;
+  border-radius: var(--card-radius);
+}
+
+.story-panel-meta .story-panel-metric {
+  align-items: center;
+  padding: 10px 14px;
+}
+
+.story-panel-meta .story-panel-metric strong {
+  font-size: 1.5rem;
+}
+
+.story-panel-meta .story-panel-metric span {
+  max-width: 130px;
+  font-size: 10px;
+}
+
+.story-panel-preview {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.story-panel-preview > * {
+  margin-top: 14px;
+}
+
+[data-story-step="vision"] .story-globe-card {
+  grid-template-columns: 116px 1fr;
+  gap: 14px;
+  padding: 14px;
+}
+
+[data-story-step="vision"] .story-globe {
+  width: 112px;
+  height: 112px;
+}
+
+[data-story-step="value"] .value-beat,
+[data-story-step="users"] .story-persona-grid,
+[data-story-step="route-types"] .story-route-type-list,
+[data-story-step="network"] .story-network-focus,
+[data-story-step="ask"] .ask-beat {
+  margin-top: 12px;
+  gap: 8px;
+}
+
+[data-story-step="value"] .value-pillar {
+  padding: 10px;
+  gap: 3px;
+}
+
+[data-story-step="value"] .value-beat { zoom: 0.86; }
+[data-story-step="route-types"] .story-route-type-list { zoom: 0.9; }
+[data-story-step="network"] .story-network-focus { zoom: 0.94; }
+[data-story-step="kpis"] .exec-insight-list { zoom: 0.9; }
+
+[data-story-step="users"] .story-persona-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+[data-story-step="users"] .story-persona-card {
+  min-height: 96px;
+  padding: 10px;
+}
+
+[data-story-step="users"] .story-persona-card strong {
+  margin-top: 6px;
+  font-size: 0.95rem;
+}
+
+[data-story-step="users"] .story-persona-card span {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+[data-story-step="route-types"] .story-route-type-list {
+  gap: 6px;
+}
+
+[data-story-step="route-types"] .story-route-type-list button,
+[data-story-step="network"] .story-network-focus button {
+  min-height: 44px;
+  padding: 8px 10px;
+}
+
+[data-story-step="network"] .story-network-focus {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.story-deck-controls {
+  margin-top: 8px;
+}
+
+/* The progress chapter uses the top KPI card as its single source of totals.
+   Keep only package accountability and status detail inside the chapter. */
+[data-story-step="progress"] .exec-kpi-grid,
+[data-story-step="progress"] .exec-curve-card,
+[data-story-step="progress"] .exec-chart-grid,
+[data-story-step="progress"] .struct-contract,
+[data-story-step="progress"] .exec-milestone-grid,
+[data-story-step="progress"] .exec-gauge {
+  display: none;
+}
+
+[data-story-step="progress"] .exec-dashboard {
+  gap: 10px;
+  padding: 10px;
+  margin-top: 0;
+  zoom: 0.58;
+}
+
+[data-story-step="progress"] .exec-dashboard-header {
+  padding: 12px;
+}
+
+[data-story-step="progress"] .exec-dashboard-header strong {
+  font-size: 1.05rem;
+}
+
+[data-story-step="progress"] .exec-dashboard-header span {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+[data-story-step="progress"] .exec-summary-strip,
+[data-story-step="progress"] .exec-status-grid {
+  display: none;
+}
+
+[data-story-step="progress"] .exec-package-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+[data-story-step="progress"] .exec-package-row {
+  grid-template-columns: minmax(0, 1fr) 42px;
+  gap: 6px;
+  min-height: 54px;
+  padding: 8px;
+}
+
+[data-story-step="progress"] .exec-package-row > div:first-child span,
+[data-story-step="progress"] .exec-package-progress {
+  display: none;
+}
+
+[data-story-step="progress"] .exec-package-row b {
+  align-self: center;
+}
+
+/* ForecastTimeline is the single canonical forecast view. */
+[data-story-step="future"] .story-panel-preview > .space-y-3,
+[data-story-step="future"] .story-panel-preview > .exec-insight-list {
+  display: none;
+}
+
+[data-story-step="future"] .forecast-timeline {
+  margin-top: 8px;
+  padding-top: 14px;
+  padding-bottom: 82px;
+}
+
+[data-story-step="ask"] .ask-decisions {
+  gap: 8px;
+}
+
+[data-story-step="ask"] .ask-beat { zoom: 0.72; }
+
+[data-story-step="ask"] .ask-card {
+  padding: 10px;
+}
+
+[data-story-step="ask"] .ask-card p,
+[data-story-step="ask"] .ask-card-foot {
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+[data-story-step="ask"] .budget-gauge {
+  padding: 10px;
+  transform: scale(0.88);
+  transform-origin: top center;
+}
+
+@media (max-width: 1199px) {
+  .story-map-column .story-map-frame,
+  .story-map-column .gis-map-stage,
+  .story-deck {
+    height: min(680px, 78dvh);
+  }
+}
+
+@media (max-width: 767px) {
+  .hero-display-controls {
+    inset-block-start: 14px;
+    inset-inline-end: 14px;
+  }
+
+  .story-shell {
+    padding-inline: 12px;
+  }
+
+  .story-top-chrome .story-kpi-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .story-top-chrome .story-kpi {
+    min-height: 78px;
+    padding: 10px;
+  }
+
+  .story-layout {
+    gap: 14px;
+  }
+
+  .story-map-column .story-map-frame,
+  .story-map-column .gis-map-stage {
+    height: min(560px, 66dvh);
+  }
+
+  .story-deck {
+    height: min(560px, 66dvh);
+  }
+
+  .story-panel {
+    padding: 16px;
+  }
+
+  .story-panel h3 {
+    font-size: clamp(1.65rem, 7vw, 2.35rem);
+  }
+
+  .story-panel-content > p {
+    font-size: 0.9rem;
+    line-height: 1.45;
+  }
+
+  .story-panel-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .story-panel-meta .story-source-note {
+    min-height: 44px;
+    padding-block: 8px;
+  }
+
+  .story-panel-meta .story-panel-metric {
+    display: none;
+  }
+
+  [data-story-step="progress"] .exec-summary-strip {
+    display: none;
+  }
+
+  [data-story-step="vision"] .story-globe-card {
+    grid-template-columns: 90px 1fr;
+  }
+
+  [data-story-step="vision"] .story-globe {
+    width: 88px;
+    height: 88px;
+  }
+
+  [data-story-step="value"] .value-beat {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    zoom: 0.74;
+  }
+
+  [data-story-step="principles"] .story-mini-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    zoom: 0.84;
+  }
+
+  [data-story-step="principles"] .story-mini-card {
+    min-height: 42px;
+    padding: 6px;
+    font-size: 11px;
+  }
+
+  [data-story-step="users"] .story-persona-grid {
+    zoom: 0.8;
+  }
+
+  [data-story-step="users"] .story-persona-card {
+    min-height: 82px;
+    padding: 8px;
+  }
+
+  [data-story-step="strategy"] .story-strategy-diagram {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    zoom: 0.72;
+  }
+
+  [data-story-step="strategy"] .story-strategy-diagram div {
+    min-height: 88px;
+    padding: 9px;
+  }
+
+  [data-story-step="strategy"] .story-strategy-diagram strong {
+    margin-top: 12px;
+    font-size: 1.15rem;
+  }
+
+  [data-story-step="strategy"] .story-strategy-diagram span {
+    margin-top: 4px;
+    font-size: 11px;
+  }
+
+  [data-story-step="route-types"] .story-route-type-list {
+    zoom: 0.78;
+  }
+
+  [data-story-step="kpis"] .exec-insight-list {
+    zoom: 0.76;
+  }
+
+  [data-story-step="progress"] .exec-package-row {
+    min-height: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-display-controls,
+  .story-panel {
+    scroll-behavior: auto;
   }
 }

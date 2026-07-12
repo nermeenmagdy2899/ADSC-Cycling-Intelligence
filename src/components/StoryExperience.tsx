@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { BarChart3, Bike, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Compass, FileText, Flag, Gauge, Heart, Landmark, MonitorPlay, Play, Route, Sparkles, Square, Timer, Trophy, Users, Waypoints } from "lucide-react";
+import { BarChart3, Bike, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Compass, FileText, Flag, Gauge, Heart, Landmark, Route, Sparkles, Timer, Trophy, Users, Waypoints } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { DeliveryCurve, LengthChart, ProgressChart } from "./Charts";
 import { CountUp } from "./CountUp";
@@ -191,7 +191,6 @@ export function StoryExperience() {
 
   const activeStep = localizedSteps.find((step) => step.id === activeStepId) ?? localizedSteps[0];
   const activeIndex = localizedSteps.findIndex((step) => step.id === activeStepId);
-  const selectedRoute = networkRoutes.find((route) => route.id === selectedRouteId) ?? networkRoutes[0];
   const progress = ((activeIndex + 1) / localizedSteps.length) * 100;
 
   const activePackages = networkRoutes.filter((route) => route.status === "construction" || route.status === "design-build").length;
@@ -376,39 +375,20 @@ export function StoryExperience() {
             </button>
           ))}
         </div>
+        <div className="story-kpi-bar" aria-label={c.executiveView}>
+          <StoryKpi icon={Waypoints} label={c.plannedNetwork} value={totals.planned} decimals={1} suffix=" km" note={kpiNotes.planned} />
+          <StoryKpi icon={CheckCircle2} label={c.completed} value={totals.completed} decimals={1} suffix=" km" note={kpiNotes.completed} />
+          <StoryKpi icon={Timer} label={c.remaining} value={totals.remaining} decimals={1} suffix=" km" note={kpiNotes.remaining} />
+          <StoryKpi icon={BarChart3} label={c.completion} value={totals.percent} suffix="%" note={kpiNotes.completion} />
+        </div>
       </div>
 
       <div className="story-layout">
         <div className="story-map-column" ref={mapColumnRef}>
-          <div className="story-map-toolbar">
-            <div className="story-map-controls">
-              <button className={`story-ctrl ${tour ? "is-active" : ""}`} onClick={() => setTour(!tour)} aria-pressed={tour}>
-                {tour ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                {tour ? c.stopTour : c.flyNetwork}
-              </button>
-              <button className={`story-ctrl ${presenter ? "is-active" : ""}`} onClick={() => setPresenter(!presenter)} aria-pressed={presenter}>
-                <MonitorPlay className="h-4 w-4" />
-                {c.presenterMode}
-              </button>
-            </div>
-          </div>
           <NetworkMap variant="story" />
-          <div className="story-live-caption">
-            <div>
-              <p>{activeStep.eyebrow}</p>
-              <strong>{routeName(selectedRoute, locale)}</strong>
-            </div>
-            <span>{activeStep.metric} - {activeStep.metricLabel}</span>
-          </div>
         </div>
 
         <div className="story-content-column">
-          <div className="story-kpi-bar" aria-label={c.executiveView}>
-            <StoryKpi icon={Waypoints} label={c.plannedNetwork} value={totals.planned} decimals={1} suffix=" km" note={kpiNotes.planned} />
-            <StoryKpi icon={CheckCircle2} label={c.completed} value={totals.completed} decimals={1} suffix=" km" note={kpiNotes.completed} />
-            <StoryKpi icon={Timer} label={c.remaining} value={totals.remaining} decimals={1} suffix=" km" note={kpiNotes.remaining} />
-            <StoryKpi icon={BarChart3} label={c.completion} value={totals.percent} suffix="%" note={kpiNotes.completion} />
-          </div>
           <div className="story-deck">
             <div className="story-deck-route" aria-hidden="true">
               <span />
@@ -446,13 +426,15 @@ export function StoryExperience() {
                   </motion.div>
                   <motion.h3 variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}>{activeStep.title}</motion.h3>
                   <motion.p variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}>{activeStep.body}</motion.p>
-                  <motion.div className="story-source-note" variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}>
-                    <FileText className="h-4 w-4 text-palm" />
-                    <span>{activeStep.source}</span>
-                  </motion.div>
-                  <motion.div className="story-panel-metric" variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}>
-                    <strong>{activeStep.metric}</strong>
-                    <span>{activeStep.metricLabel}</span>
+                  <motion.div className="story-panel-meta" variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}>
+                    <div className="story-source-note">
+                      <FileText className="h-4 w-4 text-palm" />
+                      <span>{activeStep.source}</span>
+                    </div>
+                    <div className="story-panel-metric">
+                      <strong>{activeStep.metric}</strong>
+                      <span>{activeStep.metricLabel}</span>
+                    </div>
                   </motion.div>
                   <motion.div className="story-panel-preview" variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}>
                     {renderActivePreview()}

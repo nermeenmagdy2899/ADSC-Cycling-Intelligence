@@ -1,4 +1,5 @@
 node_modules/
+.vite-cache-v1/
 dist/
 .pnpm-store/
 dev-server.log
