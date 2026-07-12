@@ -16,8 +16,8 @@ CEO-level interactive presentation of the **Abu Dhabi Cycling Network** (ADSC), 
 - **Env:** `.env.local` (gitignored) → `OPENAI_API_KEY`. See `.env.example`. **⚠️ The OpenAI key previously pasted into chat is compromised — rotate it in the OpenAI dashboard. Never commit any key; no secret may reach the client bundle.**
 
 ## 3. Architecture map (verified 2026-07-10)
-- **Live tree** (`src/App.tsx`): `<AmbientBackground/>` + `<Hero/>` + `<StoryExperience/>` + `<EvidenceSource/>` + `<ProjectAssistant/>` + presenter bar. **Everything below `App.tsx:247` is dead code behind `{false && (…)}`** (incl. a defined-but-unrendered `Header` with already-split lang/theme buttons + theme-safe `.app-header` CSS, and a dead `AIPanel`).
-- **Controls today:** language + theme are **combined** in an `accessibility-popover` inside `Hero`. Presenter/tour buttons are **page-level** in `StoryExperience.tsx` `.story-map-controls` (not in the map).
+- **Live tree** (`src/App.tsx`): `<AmbientBackground/>` + `<Hero/>` + `<StoryExperience/>` + `<ProjectAssistant/>` + presenter bar. The source/evidence section and persistent header were removed per client review; language/theme now float inside the hero.
+- **Controls today:** language + theme are independent hero controls. Presenter/tour, pan/zoom/reset, and the seven-route filter legend live inside the map.
 - **Store** (`src/store/useNetworkStore.ts`): `selectedRouteId, soloRouteId, visibleTypes, playback, speed, theme, locale, query, presenter, tour` + setters.
 - **Story** (`src/components/StoryExperience.tsx`): 11 steps — `vision, value, principles, users, strategy, route-types, network, progress, kpis, future, ask`. Currently **all panels rendered stacked + scrolled**; active step set by a center-band `IntersectionObserver`. Right-column preview components + `src/components/ExecDataviz.tsx` (`ForecastTimeline, StructuresContractors, BudgetGauge`).
 - **Map** (`src/components/NetworkMap.tsx`): SVG overlay, `viewBox 0 0 1000 620`, `preserveAspectRatio="xMidYMid slice"`. Only a programmatic viewBox camera tween (no user pan/zoom yet). `projectOverlayPoint()` = lng/lat → SVG coords.
@@ -29,7 +29,7 @@ CEO-level interactive presentation of the **Abu Dhabi Cycling Network** (ADSC), 
 ## 4. Locked decisions (v1.0.0)
 1. **AI = serverless proxy** (`/api/assistant`, `/api/insights`); key server-side only; rule-based assistant is the offline fallback.
 2. **Story = tab-driven single-viewport fly-in deck** (framer-motion `AnimatePresence`); no inter-chapter scrolling.
-3. **Layout = map hero + right story rail + fixed top-right KPI card**; full-width primary title + compact tabs on top.
+3. **Layout = equal-height map + story rail with an in-flow KPI card above**; full-width primary title + compact tabs on top. No persistent app header or sticky KPI overlay.
 4. **Animation = framer-motion + GSAP** only.
 
 ## 5. Known pitfalls (do NOT relearn these)
@@ -42,7 +42,7 @@ CEO-level interactive presentation of the **Abu Dhabi Cycling Network** (ADSC), 
 - **Never leave a dead-feeling button** — every action needs immediate visible feedback (a prior "Fly the network" fired 5s later with no motion and read as broken).
 
 ## 6. Deployment (AI proxy — fill in when Step 6 lands)
-- Dev proxy = Vite middleware reading `.env.local`. Prod = serverless function under `/api/*`. Document the chosen host (Vercel/Netlify) + required env vars here.
+- Dev proxy = Vite middleware reading `.env.local`; the rule-based assistant is the verified fallback when the key is absent. Production `/api/*` hosting remains Step 6 work. Required server variable: `OPENAI_API_KEY`.
 
 ## 7. Step Log (append after every step)
 | Step | Status | Timestamp (ISO) | Model | Commit | Notes |
@@ -52,3 +52,5 @@ CEO-level interactive presentation of the **Abu Dhabi Cycling Network** (ADSC), 
 | Step 0.4/0.5 — environment safety | done | 2026-07-10T14:17:12+03:00 | GPT-5 Codex | `787811f` | Added ignored server-only env files, a safe committed template, runtime ignores, and confirmed GSAP/Framer Motion + clean TypeScript. |
 | Step 1 — controls and theme parity | done | 2026-07-10T15:00:17+03:00 | GPT-5 Codex | `1d4ea86` | Split localized language/theme controls, added reusable outside/Escape dismissal, tokenized hero/map/assistant/presenter/tour surfaces, and visually verified EN/AR + light/dark with no console errors. |
 | Step 2 — top chrome and KPI layout | done | 2026-07-10T16:06:13+03:00 | GPT-5 Codex | `4aa0a87` | Added sticky ADSC top bar, full-width network title, compact top tabs, symmetric sticky 2×2 KPI card, shared card tokens, responsive QA at 375/1280, and fixed negative rAF counter/preloader timing. |
+| Step 3 — animated story deck | done | 2026-07-10T16:21:53+03:00 | GPT-5 Codex | `5b46dad` | Replaced stacked chapters/observer with one AnimatePresence panel, directional RTL-aware choreography, staggered reveals, reduced-motion fallback, animated bicycle progress, prev/next + keyboard navigation, animated KPI tiles, and verified CTA/map sync. |
+| Step 4 + client review refinement | done | 2026-07-12T19:05:00+03:00 | GPT-5 Codex | `40c10a6` | Added SVG map pan/zoom/reset, in-map route legend/tour/presenter controls, removed header/evidence, moved KPIs into flow, matched map/deck heights, compacted chapter content, and added secure dev AI proxy + offline assistant fallback. QA: EN/AR, light/dark, 375/1280, all desktop chapters, TypeScript/build, secret scan. |
