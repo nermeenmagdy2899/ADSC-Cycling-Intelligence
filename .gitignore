@@ -1,12 +1,7 @@
 node_modules/
-.vite-cache-v1/
 dist/
 .pnpm-store/
-dev-server.log
-.claude/settings.local.json
-
-# Local server-only secrets. Keep the documented template committed.
-.env
-.env.local
-.env.*
-!.env.example
+.tools/
+.vite-cache-v1/
+dev-server*.log
+.tmp-*.png

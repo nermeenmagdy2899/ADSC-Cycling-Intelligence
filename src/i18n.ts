@@ -1,4 +1,5 @@
 import type { NetworkRoute, RouteStatus, RouteType } from "./data/network";
+import type { InventoryClass, InventoryFeature } from "./data/inventory";
 
 export type Locale = "en" | "ar";
 
@@ -198,8 +199,8 @@ export const routeNames: Record<Locale, Record<string, string>> = {
   ar: {
     "track-1-p12": "المسار 1 - الحزمتان 1 و2",
     "track-1-p34": "المسار 1 - الحزمتان 3 و4",
-    "track-2-a": "المسار 2 - القسم A",
-    "track-2-b": "المسار 2 - القسم B",
+    "track-2-a": "المسار 2 - القسم أ",
+    "track-2-b": "المسار 2 - القسم ب",
     "track-3": "المسار 3 - البر الرئيسي إلى القدرة",
     "track-4": "المسار 4 - البر الرئيسي إلى الوثبة",
     hsct: "مسار الدراجات عالي السرعة"
@@ -211,13 +212,138 @@ export const routeLabels: Record<Locale, Record<string, string>> = {
   ar: {
     "track-1-p12": "المسار 1 حزم 1-2",
     "track-1-p34": "المسار 1 حزم 3-4",
-    "track-2-a": "المسار 2A",
-    "track-2-b": "المسار 2B",
+    "track-2-a": "المسار 2أ",
+    "track-2-b": "المسار 2ب",
     "track-3": "المسار 3",
     "track-4": "المسار 4",
-    hsct: "HSCT"
+    hsct: "المسار عالي السرعة"
   }
 };
+
+const packageNamesAr: Record<string, string> = {
+  "track-1-p12": "الحزمتان 1 و2",
+  "track-1-p34": "الحزمتان 3 و4",
+  "track-2-a": "القسم أ",
+  "track-2-b": "القسم ب",
+  "track-3": "الجزء 1",
+  "track-4": "الجزء 2",
+  hsct: "الحلقة عالية السرعة"
+};
+
+const contractorNamesAr: Record<string, string> = {
+  "Gulf Contracting & Landscape": "جلف للمقاولات وتنسيق الحدائق",
+  Hilalco: "هيلالكو",
+  "Western Bainoona Group": "مجموعة ويسترن بينونة",
+  "Western Bainoona Group / Zutari": "مجموعة ويسترن بينونة / زوتاري",
+  "GCC Landscape": "جي سي سي لتنسيق الحدائق",
+  "TBD - under design": "يحدد لاحقاً — قيد التصميم"
+};
+
+const structuresAr: Record<string, string> = {
+  "track-2-a": "6 جسور، ونفق واحد، و3 عبارات، و3 جسور خدمات.",
+  "track-2-b": "جسور أساسية واختيارية تربط ياس وفاهد وجبيل والسعديات وجسر الشيخ خليفة.",
+  "track-3": "جسر واحد مكتمل وعقدتان قيد التنفيذ.",
+  "track-4": "4 جسور ونفق واحد مكتملة.",
+  hsct: "مسار صافٍ بعرض 7 م، و14 منحدر وصول، ونقطتا وصول بالسلالم والمصاعد."
+};
+
+const inventoryValuesAr: Record<string, string> = {
+  "Very Good": "جيد جداً",
+  Excellent: "ممتاز",
+  Fair: "مقبول",
+  Good: "جيد",
+  Asphalt: "أسفلت",
+  Asphalat: "أسفلت (سجل بديل)",
+  "Acrylic surface": "سطح أكريليك",
+  Acrylicjgt: "سطح أكريليك (سجل بديل)",
+  Aspacrllat: "أسفلت أكريليك",
+  Rubber: "مطاط",
+  Thermoplst: "لدائن حرارية",
+  Clrconcret: "خرسانة ملوّنة",
+  Concrete: "خرسانة",
+  Concretpvs: "رصف خرساني",
+  "Pcc-Pavblk": "بلاط رصف خرساني",
+  Tiled: "بلاط",
+  "Two Ways": "اتجاهان",
+  "Two Way": "اتجاهان",
+  "One Way": "اتجاه واحد",
+  Yes: "نعم",
+  No: "لا"
+};
+
+const inventoryClasses: Record<Locale, Record<InventoryClass, string>> = {
+  en: {
+    all: "All mapped classes",
+    "Cycle track": "Verified cycle tracks",
+    "Active-mobility path": "Other paths / walkways",
+    "Unclassified track polygon": "Unclassified track polygons"
+  },
+  ar: {
+    all: "جميع الفئات المرسومة",
+    "Cycle track": "مسارات الدراجات الموثقة",
+    "Active-mobility path": "مسارات وممرات أخرى",
+    "Unclassified track polygon": "مضلعات مسارات غير مصنفة"
+  }
+};
+
+export function inventoryClassLabel(value: InventoryClass, locale: Locale) {
+  return inventoryClasses[locale][value];
+}
+
+export function inventoryValueLabel(value: string | null | undefined, locale: Locale) {
+  if (!value || locale === "en") return value ?? "";
+  return inventoryValuesAr[value] ?? value;
+}
+
+export function inventoryFeatureLabel(feature: InventoryFeature, locale: Locale) {
+  if (locale === "en") return feature.properties.name;
+  if (feature.properties.nameAr) return feature.properties.nameAr;
+  const normalized = feature.properties.name.trim().toLocaleLowerCase("en");
+  const knownNames: Record<string, string> = {
+    cycling: "مسار دراجات",
+    "cycle track": "مسار دراجات",
+    "al ain cycle track": "مسار دراجات العين",
+    "al ain path": "مسار تنقل في العين",
+    "al mirfa jogging track": "مسار الجري في المرفأ",
+    "madinat zayed jogging track": "مسار الجري في مدينة زايد",
+    "sila jogging track": "مسار الجري في السلع",
+    "dalma jogging track": "مسار الجري في دلما",
+    unnamed: "مسار غير مسمى"
+  };
+  if (knownNames[normalized]) return knownNames[normalized];
+  if (feature.properties.featureClass === "Cycle track") return "مسار دراجات";
+  if (feature.properties.featureClass === "Active-mobility path") return "مسار تنقل نشط";
+  return "مضلع مسار غير مصنف";
+}
+
+export function routePackageLabel(route: NetworkRoute, locale: Locale) {
+  return locale === "ar" ? packageNamesAr[route.id] ?? route.packageName : route.packageName;
+}
+
+export function routeContractorLabel(route: NetworkRoute, locale: Locale) {
+  return locale === "ar" ? contractorNamesAr[route.contractor] ?? route.contractor : route.contractor;
+}
+
+export function routeDesignSpeedLabel(route: NetworkRoute, locale: Locale) {
+  return locale === "ar" ? route.designSpeed.replace("kph", "كم/س") : route.designSpeed;
+}
+
+export function routeStructuresLabel(route: NetworkRoute, locale: Locale) {
+  if (!route.structures) return "";
+  return locale === "ar" ? structuresAr[route.id] ?? route.structures : route.structures;
+}
+
+export function distanceUnit(locale: Locale) {
+  return locale === "ar" ? "كم" : "km";
+}
+
+export function metreUnit(locale: Locale) {
+  return locale === "ar" ? "م" : "m";
+}
+
+export function budgetBillions(value: string, locale: Locale) {
+  return locale === "ar" ? `${value} مليار درهم` : `AED ${value}bn`;
+}
 
 export const statusText: Record<Locale, Record<RouteStatus, string>> = {
   en: {

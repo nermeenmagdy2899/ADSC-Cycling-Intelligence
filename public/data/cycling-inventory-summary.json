@@ -1,0 +1,183 @@
+{
+  "asOf": "Source files supplied 23 August 2026",
+  "methodology": {
+    "programmeScope": "Excluded from municipal inventory totals; reported separately from the December 2025 programme deck.",
+    "inventory": "Municipal geodatabase records transformed from their source CRS to WGS84. Length uses the source-defined Shape_Length for AAM and ASSET_LENGTH for ADM/DRM. Cycle-track KPIs include only records explicitly identified as cycling in source attributes.",
+    "comparability": "ADM and DRM share the same structured schema, but their characteristic comparisons include only records explicitly classified as cycling. AAM is a mixed walkway/cycle-track centerline inventory and is not included in cross-region characteristic comparisons."
+  },
+  "regions": [
+    {
+      "code": "AAM",
+      "name": "Al Ain",
+      "nameAr": "العين",
+      "geometryType": "mixed-path-lines",
+      "bounds": [
+        55.599348,
+        24.104708,
+        55.807727,
+        24.365818
+      ],
+      "recordCount": 38,
+      "explicitCycleRecordCount": 8,
+      "recordedLengthKm": 241.29,
+      "explicitCycleLengthKm": 38.27,
+      "averageWidthM": null,
+      "coverage": {
+        "status": 0,
+        "condition": 0,
+        "material": 0,
+        "surfaceColor": 0,
+        "direction": 0,
+        "lighting": 0,
+        "shading": 0,
+        "planting": 0,
+        "parking": 0,
+        "bikeSpaces": 0,
+        "widthM": 0
+      },
+      "distributions": {
+        "condition": {},
+        "material": {},
+        "direction": {},
+        "lighting": {},
+        "shading": {},
+        "planting": {},
+        "parking": {},
+        "featureClass": {
+          "Active-mobility path": 30,
+          "Cycle track": 8
+        }
+      }
+    },
+    {
+      "code": "ADM",
+      "name": "Abu Dhabi",
+      "nameAr": "أبوظبي",
+      "geometryType": "cycle-track-polygons",
+      "bounds": [
+        54.319039,
+        24.148369,
+        55.112673,
+        24.823946
+      ],
+      "recordCount": 2715,
+      "explicitCycleRecordCount": 362,
+      "recordedLengthKm": 347.85,
+      "explicitCycleLengthKm": 65.52,
+      "averageWidthM": 3.3,
+      "coverage": {
+        "status": 100.0,
+        "condition": 100.0,
+        "material": 100.0,
+        "surfaceColor": 100.0,
+        "direction": 100.0,
+        "lighting": 100.0,
+        "shading": 100.0,
+        "planting": 100.0,
+        "parking": 100.0,
+        "bikeSpaces": 100.0,
+        "widthM": 100.0
+      },
+      "distributions": {
+        "condition": {
+          "Very Good": 222,
+          "Excellent": 140
+        },
+        "material": {
+          "Asphalt": 281,
+          "Acrylic surface": 79,
+          "Asphalat": 2
+        },
+        "direction": {
+          "Two Ways": 362
+        },
+        "lighting": {
+          "No": 220,
+          "Yes": 142
+        },
+        "shading": {
+          "No": 362
+        },
+        "planting": {
+          "No": 360,
+          "Yes": 2
+        },
+        "parking": {
+          "Yes": 220,
+          "No": 142
+        },
+        "featureClass": {
+          "Unclassified track polygon": 2353,
+          "Cycle track": 362
+        }
+      }
+    },
+    {
+      "code": "DRM",
+      "name": "Al Dhafrah",
+      "nameAr": "الظفرة",
+      "geometryType": "cycle-track-polygons",
+      "bounds": [
+        51.748015,
+        23.13206,
+        53.798523,
+        24.47387
+      ],
+      "recordCount": 332,
+      "explicitCycleRecordCount": 325,
+      "recordedLengthKm": 39.39,
+      "explicitCycleLengthKm": 36.62,
+      "averageWidthM": 2.3,
+      "coverage": {
+        "status": 100.0,
+        "condition": 100.0,
+        "material": 100.0,
+        "surfaceColor": 100.0,
+        "direction": 100.0,
+        "lighting": 24.9,
+        "shading": 24.9,
+        "planting": 9.5,
+        "parking": 5.2,
+        "bikeSpaces": 7.1,
+        "widthM": 100.0
+      },
+      "distributions": {
+        "condition": {
+          "Fair": 130,
+          "Good": 98,
+          "Very Good": 81,
+          "Excellent": 16
+        },
+        "material": {
+          "Asphalt": 149,
+          "Concrete": 137,
+          "Tiled": 23,
+          "Rubber": 16
+        },
+        "direction": {
+          "Two Ways": 178,
+          "One Way": 147
+        },
+        "lighting": {
+          "Yes": 56,
+          "No": 25
+        },
+        "shading": {
+          "No": 81
+        },
+        "planting": {
+          "Yes": 16,
+          "No": 15
+        },
+        "parking": {
+          "Yes": 11,
+          "No": 6
+        },
+        "featureClass": {
+          "Cycle track": 325,
+          "Active-mobility path": 7
+        }
+      }
+    }
+  ]
+}

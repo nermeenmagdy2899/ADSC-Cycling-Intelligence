@@ -63,6 +63,18 @@ export default defineConfig(({ mode }) => {
   return {
   cacheDir: ".vite-cache-v1",
   plugins: [react(), projectAssistantPlugin(env.OPENAI_API_KEY ?? "")],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/mapbox-gl") || id.includes("node_modules/maplibre-gl") || id.includes("node_modules/@mapbox")) return "map-engine";
+          if (id.includes("node_modules/echarts") || id.includes("node_modules/zrender")) return "charts";
+          if (id.includes("node_modules/framer-motion") || id.includes("node_modules/gsap") || id.includes("node_modules/lenis")) return "motion";
+          if (id.includes("node_modules/react") || id.includes("node_modules/zustand")) return "react-core";
+        }
+      }
+    }
+  },
   server: {
     port: 5173
   }

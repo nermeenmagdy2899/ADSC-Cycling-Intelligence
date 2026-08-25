@@ -6,7 +6,6 @@ import { DeliveryCurve, LengthChart, ProgressChart } from "./Charts";
 import { CountUp } from "./CountUp";
 import { ForecastTimeline, StructuresContractors } from "./ExecDataviz";
 import { NetworkMap } from "./NetworkMap";
-import { ExecutiveDashboard } from "./ExecutiveDashboard";
 import { designPrinciples, milestones, networkRoutes, personas, programme, strategyPrinciples } from "../data/network";
 import type { RouteType } from "../data/network";
 import { formatForecast, personaAr, routeLabel, routeName, routeTypeDescription, routeTypeName, statusText, storyText, strategyPrincipleAr, uiCopy } from "../i18n";
@@ -329,7 +328,7 @@ export function StoryExperience() {
           />
         );
       case "progress":
-        return <ExecutiveDashboard locale={locale} />;
+        return <ExecutiveProgressDashboard locale={locale} />;
       case "future":
         return (
           <div className="story-merged-preview">
@@ -367,13 +366,13 @@ export function StoryExperience() {
         </div>
       </div>
 
-      <div className={`story-layout ${activeStep.id === "progress" ? "is-dashboard" : ""}`}>
+      <div className="story-layout">
         <div className="story-map-column" ref={mapColumnRef}>
           <NetworkMap variant="story" />
         </div>
 
         <div className="story-content-column">
-          <div className={`story-deck ${activeStep.id === "progress" ? "is-dashboard" : ""}`}>
+          <div className="story-deck">
             <div className="story-deck-route" aria-hidden="true">
               <span />
               <motion.i
@@ -387,7 +386,7 @@ export function StoryExperience() {
               <motion.article
                 className="story-panel is-active"
                 data-story-step={activeStep.id}
-                id={activeStep.id === "progress" ? "dashboard" : `story-${activeStep.id}`}
+                id={`story-${activeStep.id}`}
                 key={activeStep.id}
                 custom={physicalDirection}
                 initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: physicalDirection * 72, scale: 0.97, filter: "blur(8px)" }}
@@ -395,9 +394,6 @@ export function StoryExperience() {
                 exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: physicalDirection * -48, scale: 0.985, filter: "blur(5px)" }}
                 transition={reduceMotion ? { duration: 0.12 } : { duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
               >
-                {activeStep.id === "progress" ? (
-                  <ExecutiveDashboard locale={locale} />
-                ) : (
                 <motion.div
                   className="story-panel-content"
                   initial="hidden"
@@ -427,7 +423,6 @@ export function StoryExperience() {
                     {renderActivePreview()}
                   </motion.div>
                 </motion.div>
-                )}
               </motion.article>
             </AnimatePresence>
             <div className="story-deck-controls" aria-label={c.chapterPosition}>

@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-const easeOutExpo = (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
-
 type CountUpProps = {
   value: number;
   decimals?: number;
@@ -11,60 +9,41 @@ type CountUpProps = {
   className?: string;
 };
 
-/**
- * Animates a number from 0 to `value` the first time it scrolls into view.
- * Uses a lightweight rAF visibility poll (robust under StrictMode double-mount
- * and programmatic scrolling) and honours prefers-reduced-motion.
- */
-export function CountUp({ value, decimals = 0, prefix = "", suffix = "", duration = 1400, className }: CountUpProps) {
+const easeOut = (value: number) => 1 - Math.pow(1 - value, 4);
+
+export function CountUp({ value, decimals = 0, prefix = "", suffix = "", duration = 1000, className }: CountUpProps) {
   const ref = useRef<HTMLSpanElement | null>(null);
-  const [display, setDisplay] = useState(0);
+  const [display, setDisplay] = useState(value);
 
   useEffect(() => {
     const node = ref.current;
-    if (!node) return;
-
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (!node || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setDisplay(value);
       return;
     }
-
-    let raf = 0;
-    let animating = false;
-
-    const animate = () => {
-      animating = true;
-      const start = performance.now();
+    let frame = 0;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      observer.disconnect();
+      const started = performance.now();
       const tick = (now: number) => {
-        const progress = Math.min(1, Math.max(0, (now - start) / duration));
-        setDisplay(value * easeOutExpo(progress));
-        if (progress < 1) raf = requestAnimationFrame(tick);
+        const progress = Math.min(1, (now - started) / duration);
+        setDisplay(value * easeOut(progress));
+        if (progress < 1) frame = requestAnimationFrame(tick);
       };
-      raf = requestAnimationFrame(tick);
+      setDisplay(0);
+      frame = requestAnimationFrame(tick);
+    }, { threshold: 0.25 });
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
     };
-
-    const waitForView = () => {
-      if (animating) return;
-      const rect = node.getBoundingClientRect();
-      const inView = rect.top < window.innerHeight * 0.94 && rect.bottom > 0;
-      if (inView) animate();
-      else raf = requestAnimationFrame(waitForView);
-    };
-
-    waitForView();
-    return () => cancelAnimationFrame(raf);
-  }, [value, duration]);
-
-  const formatted = display.toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
-  });
+  }, [duration, value]);
 
   return (
     <span ref={ref} className={className}>
-      {prefix}
-      {formatted}
-      {suffix}
+      {prefix}{display.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}{suffix}
     </span>
   );
 }

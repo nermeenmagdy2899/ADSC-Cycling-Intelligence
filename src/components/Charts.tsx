@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as echarts from "echarts";
 import { networkRoutes } from "../data/network";
-import { formatForecast } from "../i18n";
+import { formatForecast, routeLabel } from "../i18n";
 import { useNetworkStore } from "../store/useNetworkStore";
+import type { RegionSummary } from "../data/inventory";
 
 function axisColors(theme: "dark" | "light") {
   return theme === "light"
@@ -48,10 +49,10 @@ function useChart(options: echarts.EChartsOption) {
 }
 
 export function ProgressChart({ height = 320 }: { height?: number } = {}) {
-  const theme = useNetworkStore((state) => state.theme);
+  const { theme, locale } = useNetworkStore();
   const options = useMemo<echarts.EChartsOption>(() => {
     const col = axisColors(theme);
-    const names = networkRoutes.map((route) => route.label);
+    const names = networkRoutes.map((route) => routeLabel(route, locale));
     return {
       backgroundColor: "transparent",
       tooltip: { trigger: "axis", confine: true },
@@ -75,7 +76,7 @@ export function ProgressChart({ height = 320 }: { height?: number } = {}) {
         }
       ]
     };
-  }, [theme]);
+  }, [locale, theme]);
   const ref = useChart(options);
   return <div ref={ref} className="w-full" style={{ height }} />;
 }
@@ -181,4 +182,71 @@ export function LengthChart({ height = 320 }: { height?: number } = {}) {
   }, [theme]);
   const ref = useChart(options);
   return <div ref={ref} className="w-full" style={{ height }} />;
+}
+
+export function DistributionChart({
+  data,
+  height = 250,
+  color = "#56d6bd"
+}: {
+  data: Record<string, number>;
+  height?: number;
+  color?: string;
+}) {
+  const theme = useNetworkStore((state) => state.theme);
+  const options = useMemo<echarts.EChartsOption>(() => {
+    const col = axisColors(theme);
+    const rows = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, 7);
+    return {
+      backgroundColor: "transparent",
+      animationDuration: 700,
+      animationEasing: "cubicOut",
+      tooltip: { trigger: "axis", axisPointer: { type: "shadow" }, confine: true },
+      grid: { left: 8, right: 20, top: 8, bottom: 8, containLabel: true },
+      xAxis: { type: "value", axisLabel: { color: col.label }, splitLine: { lineStyle: { color: col.split } } },
+      yAxis: {
+        type: "category",
+        inverse: true,
+        data: rows.map(([label]) => label),
+        axisLabel: { color: col.strong, width: 105, overflow: "truncate" },
+        axisLine: { show: false },
+        axisTick: { show: false }
+      },
+      series: [{
+        type: "bar",
+        data: rows.map(([, value]) => value),
+        barWidth: 13,
+        itemStyle: { color, borderRadius: 3 },
+        label: { show: true, position: "right", color: col.strong, fontWeight: 700 }
+      }]
+    };
+  }, [color, data, theme]);
+  const ref = useChart(options);
+  return <div ref={ref} className="w-full" style={{ height }} role="img" aria-label="Track characteristic distribution" />;
+}
+
+export function RegionalComparisonChart({ regions, locale, height = 280 }: { regions: RegionSummary[]; locale: "en" | "ar"; height?: number }) {
+  const theme = useNetworkStore((state) => state.theme);
+  const options = useMemo<echarts.EChartsOption>(() => {
+    const col = axisColors(theme);
+    const comparable = regions.filter((region) => region.code !== "AAM");
+    return {
+      backgroundColor: "transparent",
+      animationDuration: 850,
+      tooltip: { trigger: "axis", confine: true },
+      legend: { top: 0, textStyle: { color: col.label } },
+      grid: { left: 46, right: 16, top: 42, bottom: 34 },
+      xAxis: { type: "category", data: comparable.map((region) => locale === "ar" ? region.nameAr : region.name), axisLabel: { color: col.strong }, axisLine: { lineStyle: { color: col.axis } } },
+      yAxis: [
+        { type: "value", name: "km", axisLabel: { color: col.label }, splitLine: { lineStyle: { color: col.split } } },
+        { type: "value", name: "m", min: 0, max: 4, axisLabel: { color: col.label }, splitLine: { show: false } }
+      ],
+      series: [
+        { name: locale === "ar" ? "طول مسارات الدراجات الموثق" : "Verified cycle length", type: "bar", data: comparable.map((region) => region.explicitCycleLengthKm), itemStyle: { color: "#56d6bd", borderRadius: [4, 4, 0, 0] }, barMaxWidth: 54 },
+        { name: locale === "ar" ? "متوسط العرض" : "Average width", type: "line", yAxisIndex: 1, data: comparable.map((region) => region.averageWidthM), symbolSize: 10, lineStyle: { width: 3, color: "#e4bc72" }, itemStyle: { color: "#e4bc72" } }
+      ]
+    };
+  }, [locale, regions, theme]);
+  const ref = useChart(options);
+  return <div ref={ref} className="w-full" style={{ height }} role="img" aria-label={locale === "ar" ? "مقارنة مخزون مسارات الدراجات البلدية" : "Comparable municipal cycling inventory"} />;
 }
