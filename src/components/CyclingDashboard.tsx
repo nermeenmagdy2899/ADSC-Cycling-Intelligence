@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Banknote,
@@ -14,12 +14,12 @@ import {
   Layers3,
   ListFilter,
   MapPinned,
-  Milestone,
   Moon,
   RefreshCcw,
   Route,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
   Sun,
   Target,
   Waypoints,
@@ -28,8 +28,9 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { CountUp } from "./CountUp";
 import { InventoryMap } from "./InventoryMap";
-import { loadInventory, regionColors, regionLabel, type InventoryClass, type InventoryCollection, type InventoryFeature, type InventorySummary, type RegionCode } from "../data/inventory";
-import { networkRoutes, programme, type NetworkRoute, type RouteStatus } from "../data/network";
+import { loadAsBuilt, type AsBuiltCollection, type AsBuiltSummary } from "../data/asbuilt";
+import { isDecisionFacingInventoryFeature, loadInventory, regionColors, regionLabel, type InventoryClass, type InventoryCollection, type InventoryFeature, type InventorySummary, type RegionCode } from "../data/inventory";
+import { currentProgrammeStatus, networkRoutes, programme, type NetworkRoute, type RouteStatus } from "../data/network";
 import {
   budgetBillions,
   distanceUnit,
@@ -51,7 +52,31 @@ type FilterValue = string | "all";
 type SelectedTrack = { kind: "programme"; route: NetworkRoute } | { kind: "inventory"; feature: InventoryFeature } | null;
 type FilterOption = { value: string; label: string; count?: number; disabled?: boolean };
 type ProgrammeFilterKey = "routeFilter" | "packageFilter" | "statusFilter" | "contractorFilter" | "forecastFilter";
-type InventoryFilterKey = "region" | "conditionFilter" | "materialFilter";
+type InventoryFilterKey = "region" | "conditionFilter" | "widthFilter";
+type WidthBand = "all" | "under-2.5" | "2.5-3.49" | "3.5-4.49" | "4.5-plus";
+type DashboardFilters = {
+  region: RegionCode;
+  featureClass: InventoryClass;
+  routeFilter: FilterValue;
+  packageFilter: FilterValue;
+  statusFilter: FilterValue;
+  contractorFilter: FilterValue;
+  conditionFilter: FilterValue;
+  widthFilter: WidthBand;
+  forecastFilter: FilterValue;
+};
+
+const defaultFilters: DashboardFilters = {
+  region: "all",
+  featureClass: "all",
+  routeFilter: "all",
+  packageFilter: "all",
+  statusFilter: "all",
+  contractorFilter: "all",
+  conditionFilter: "all",
+  widthFilter: "all",
+  forecastFilter: "all"
+};
 
 const statusOptions: RouteStatus[] = ["construction", "design-build", "design", "not-started"];
 
@@ -60,8 +85,7 @@ const contracts = [
   { id: "c-p34", routeIds: ["track-1-p34"], name: "Track 1 · Packages 3 & 4", nameAr: "المسار 1 · الحزمتان 3 و4", valueM: 185, display: "AED 185m", displayAr: "185 مليون درهم" },
   { id: "c-2a", routeIds: ["track-2-a"], name: "Track 2 · Section A", nameAr: "المسار 2 · القسم أ", valueM: 445, display: "AED 445m", displayAr: "445 مليون درهم" },
   { id: "c-2b", routeIds: ["track-2-b"], name: "Track 2 · Section B", nameAr: "المسار 2 · القسم ب", valueM: 130, display: "AED 130m base", displayAr: "130 مليون درهم — النطاق الأساسي", note: "AED 889m overall scope listed separately", noteAr: "نطاق إجمالي بقيمة 889 مليون درهم مدرج بشكل منفصل" },
-  { id: "c-34", routeIds: ["track-3", "track-4"], name: "Tracks 3 & 4", nameAr: "المساران 3 و4", valueM: 328, display: "AED 328m", displayAr: "328 مليون درهم" },
-  { id: "c-hsct", routeIds: ["hsct"], name: "High-Speed Cycle Track", nameAr: "مسار الدراجات عالي السرعة", valueM: null, display: "TBC", displayAr: "يحدد لاحقاً" }
+  { id: "c-34", routeIds: ["track-3", "track-4"], name: "Tracks 3 & 4", nameAr: "المساران 3 و4", valueM: 328, display: "AED 328m", displayAr: "328 مليون درهم" }
 ] as const;
 
 function unique(values: Array<string | null | undefined>) {
@@ -69,7 +93,7 @@ function unique(values: Array<string | null | undefined>) {
 }
 
 function progressOf(route: NetworkRoute) {
-  return route.plannedKm > 0 ? (route.completedKm / route.plannedKm) * 100 : 0;
+  return route.progressPct;
 }
 
 function monthValue(value: string) {
@@ -82,7 +106,16 @@ function fmt(value: number, decimals = 1) {
 }
 
 function matchesProgramme(route: NetworkRoute, filters: Record<ProgrammeFilterKey, string>) {
-  return (filters.routeFilter === "all" || route.id === filters.routeFilter)
+  const routeMatches = filters.routeFilter === "all"
+    || route.id === filters.routeFilter
+    || (filters.routeFilter === "track-1" && (route.id === "track-1-p12" || route.id === "track-1-p34"))
+    || (filters.routeFilter === "tracks-3-4" && (route.id === "track-3" || route.id === "track-4"));
+  const currentDimensionActive = filters.packageFilter !== "all"
+    || filters.statusFilter !== "all"
+    || filters.contractorFilter !== "all"
+    || filters.forecastFilter !== "all";
+  return routeMatches
+    && (!route.currentSourceGap || !currentDimensionActive)
     && (filters.packageFilter === "all" || route.packageName === filters.packageFilter)
     && (filters.statusFilter === "all" || route.status === filters.statusFilter)
     && (filters.contractorFilter === "all" || route.contractor === filters.contractorFilter)
@@ -90,10 +123,17 @@ function matchesProgramme(route: NetworkRoute, filters: Record<ProgrammeFilterKe
 }
 
 function matchesInventory(feature: InventoryFeature, filters: Record<InventoryFilterKey, string> & { featureClass: InventoryClass }) {
+  const widthMatches = filters.widthFilter === "all"
+    || (feature.properties.widthM != null && (
+      (filters.widthFilter === "under-2.5" && feature.properties.widthM < 2.5)
+      || (filters.widthFilter === "2.5-3.49" && feature.properties.widthM >= 2.5 && feature.properties.widthM < 3.5)
+      || (filters.widthFilter === "3.5-4.49" && feature.properties.widthM >= 3.5 && feature.properties.widthM < 4.5)
+      || (filters.widthFilter === "4.5-plus" && feature.properties.widthM >= 4.5)
+    ));
   return (filters.region === "all" || feature.properties.municipality === filters.region)
     && (filters.featureClass === "all" || feature.properties.featureClass === filters.featureClass)
     && (filters.conditionFilter === "all" || feature.properties.condition === filters.conditionFilter)
-    && (filters.materialFilter === "all" || feature.properties.material === filters.materialFilter);
+    && widthMatches;
 }
 
 export function CyclingDashboard() {
@@ -101,56 +141,71 @@ export function CyclingDashboard() {
   const isAr = locale === "ar";
   const [inventory, setInventory] = useState<InventoryCollection | null>(null);
   const [summary, setSummary] = useState<InventorySummary | null>(null);
+  const [asBuilt, setAsBuilt] = useState<AsBuiltCollection | null>(null);
+  const [asBuiltSummary, setAsBuiltSummary] = useState<AsBuiltSummary | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [region, setRegion] = useState<RegionCode>("all");
-  const [featureClass, setFeatureClass] = useState<InventoryClass>("all");
-  const [routeFilter, setRouteFilter] = useState<FilterValue>("all");
-  const [packageFilter, setPackageFilter] = useState<FilterValue>("all");
-  const [statusFilter, setStatusFilter] = useState<FilterValue>("all");
-  const [contractorFilter, setContractorFilter] = useState<FilterValue>("all");
-  const [conditionFilter, setConditionFilter] = useState<FilterValue>("all");
-  const [materialFilter, setMaterialFilter] = useState<FilterValue>("all");
-  const [forecastFilter, setForecastFilter] = useState<FilterValue>("all");
+  const [filters, setFilters] = useState<DashboardFilters>(defaultFilters);
+  const {
+    region, featureClass, routeFilter, packageFilter, statusFilter, contractorFilter,
+    conditionFilter, widthFilter, forecastFilter
+  } = filters;
+  const updateFilter = useCallback(<K extends keyof DashboardFilters>(key: K, value: DashboardFilters[K]) => {
+    setFilters((current) => ({ ...current, [key]: value }));
+  }, []);
+  const setRegion = useCallback((value: RegionCode) => updateFilter("region", value), [updateFilter]);
+  const setFeatureClass = useCallback((value: InventoryClass) => updateFilter("featureClass", value), [updateFilter]);
+  const setRouteFilter = useCallback((value: FilterValue) => updateFilter("routeFilter", value), [updateFilter]);
+  const setPackageFilter = useCallback((value: FilterValue) => updateFilter("packageFilter", value), [updateFilter]);
+  const setStatusFilter = useCallback((value: FilterValue) => updateFilter("statusFilter", value), [updateFilter]);
+  const setContractorFilter = useCallback((value: FilterValue) => updateFilter("contractorFilter", value), [updateFilter]);
+  const setConditionFilter = useCallback((value: FilterValue) => updateFilter("conditionFilter", value), [updateFilter]);
+  const setWidthFilter = useCallback((value: WidthBand) => updateFilter("widthFilter", value), [updateFilter]);
+  const setForecastFilter = useCallback((value: FilterValue) => updateFilter("forecastFilter", value), [updateFilter]);
+  const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedFeature, setSelectedFeature] = useState<InventoryFeature | null>(null);
   const [selectedProgrammeId, setSelectedProgrammeId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    loadInventory()
-      .then(([collection, profile]) => {
-        if (!active) return;
-        setInventory(collection);
-        setSummary(profile);
-      })
-      .catch(() => active && setLoadError(true));
+    Promise.allSettled([loadInventory(), loadAsBuilt()]).then(([inventoryResult, asBuiltResult]) => {
+      if (!active) return;
+      if (inventoryResult.status === "fulfilled") {
+        setInventory(inventoryResult.value[0]);
+        setSummary(inventoryResult.value[1]);
+      } else setLoadError(true);
+      if (asBuiltResult.status === "fulfilled") {
+        setAsBuilt(asBuiltResult.value[0]);
+        setAsBuiltSummary(asBuiltResult.value[1]);
+      }
+    });
     return () => { active = false; };
   }, []);
 
+  const decisionInventory = useMemo(() => inventory?.features.filter(isDecisionFacingInventoryFeature) ?? [], [inventory]);
   const inventoryOptions = useMemo(() => ({
-    conditions: unique(inventory?.features.map((feature) => feature.properties.condition) ?? []),
-    materials: unique(inventory?.features.map((feature) => feature.properties.material) ?? [])
-  }), [inventory]);
+    conditions: unique(decisionInventory.map((feature) => feature.properties.condition))
+  }), [decisionInventory]);
 
   const routeOptions = useMemo(() => ({
-    packages: unique(networkRoutes.map((route) => route.packageName)),
-    contractors: unique(networkRoutes.map((route) => route.contractor)),
-    forecasts: unique(networkRoutes.map((route) => route.forecast)).sort((a, b) => monthValue(a) - monthValue(b))
+    packages: unique(networkRoutes.filter((route) => !route.currentSourceGap).map((route) => route.packageName)),
+    contractors: unique(networkRoutes.filter((route) => !route.currentSourceGap).map((route) => route.contractor)),
+    forecasts: unique(networkRoutes.filter((route) => !route.currentSourceGap).map((route) => route.forecast)).sort((a, b) => monthValue(a) - monthValue(b))
   }), []);
 
   const programmeFilterState = useMemo<Record<ProgrammeFilterKey, string>>(() => ({
     routeFilter, packageFilter, statusFilter, contractorFilter, forecastFilter
   }), [contractorFilter, forecastFilter, packageFilter, routeFilter, statusFilter]);
   const inventoryFilterState = useMemo<Record<InventoryFilterKey, string> & { featureClass: InventoryClass }>(() => ({
-    region, conditionFilter, materialFilter, featureClass
-  }), [conditionFilter, featureClass, materialFilter, region]);
+    region, conditionFilter, widthFilter, featureClass
+  }), [conditionFilter, featureClass, region, widthFilter]);
 
   const programmeCount = useCallback((field: ProgrammeFilterKey, value: string) => networkRoutes.filter((route) => (
     matchesProgramme(route, { ...programmeFilterState, [field]: value })
   )).length, [programmeFilterState]);
-  const inventoryCount = useCallback((field: InventoryFilterKey, value: string) => (inventory?.features ?? []).filter((feature) => (
+  const inventoryCount = useCallback((field: InventoryFilterKey, value: string) => decisionInventory.filter((feature) => (
     matchesInventory(feature, { ...inventoryFilterState, [field]: value })
-  )).length, [inventory, inventoryFilterState]);
+  )).length, [decisionInventory, inventoryFilterState]);
 
   const filteredRoutes = useMemo(() => (
     region === "all" || region === "ADM"
@@ -158,10 +213,24 @@ export function CyclingDashboard() {
       : []
   ), [programmeFilterState, region]);
 
-  const filteredInventory = useMemo(() => inventory?.features.filter((feature) => matchesInventory(feature, inventoryFilterState)) ?? [], [inventory, inventoryFilterState]);
+  const filteredInventory = useMemo(() => decisionInventory.filter((feature) => matchesInventory(feature, inventoryFilterState)), [decisionInventory, inventoryFilterState]);
+  const mapInventory = useMemo<InventoryCollection | null>(() => inventory ? ({
+    ...inventory,
+    features: decisionInventory.filter((feature) => matchesInventory(feature, {
+      ...inventoryFilterState,
+      region: "all",
+      featureClass: "all",
+      conditionFilter: "all"
+    }))
+  }) : null, [decisionInventory, inventory, inventoryFilterState]);
   const programmeRoutesForMap = useMemo(() => (
-    selectedFeature || region === "AAM" || region === "DRM" ? [] : filteredRoutes
+    selectedFeature || region === "AAM" || region === "DRM" ? [] : filteredRoutes.filter((route) => route.currentProgramme || route.currentSourceGap)
   ), [filteredRoutes, region, selectedFeature]);
+  const asBuiltForMap = useMemo(() => (
+    !selectedFeature && (region === "all" || region === "ADM")
+      ? (filteredRoutes.some((route) => route.id === "track-1-p12" || route.id === "track-1-p34") ? asBuilt : null)
+      : null
+  ), [asBuilt, filteredRoutes, region, selectedFeature]);
 
   useEffect(() => {
     if (selectedProgrammeId && !filteredRoutes.some((route) => route.id === selectedProgrammeId)) setSelectedProgrammeId(null);
@@ -172,37 +241,78 @@ export function CyclingDashboard() {
   }, [filteredInventory, selectedFeature]);
 
   const totals = useMemo(() => {
-    const planned = filteredRoutes.reduce((sum, route) => sum + route.plannedKm, 0);
-    const completed = filteredRoutes.reduce((sum, route) => sum + route.completedKm, 0);
-    return { planned, completed, remaining: planned - completed, progress: planned > 0 ? (completed / planned) * 100 : 0 };
-  }, [filteredRoutes]);
-
-  const nextMilestone = useMemo(() => [...filteredRoutes].sort((a, b) => monthValue(a.forecast) - monthValue(b.forecast))[0] ?? null, [filteredRoutes]);
+    const isHeadlineView = (region === "all" || region === "ADM")
+      && [routeFilter, packageFilter, statusFilter, contractorFilter, forecastFilter].every((value) => value === "all");
+    if (isHeadlineView) return {
+      planned: currentProgrammeStatus.scopeKm,
+      completed: currentProgrammeStatus.completedKm,
+      remaining: currentProgrammeStatus.remainingKm,
+      progress: currentProgrammeStatus.deliveryPct,
+      available: true,
+      sourceNote: isAr ? "الإجمالي الرئيسي · أغسطس 2026" : "Programme headline · Aug 2026"
+    };
+    const currentRoutes = filteredRoutes.filter((route) => route.currentProgramme);
+    const planned = currentRoutes.reduce((sum, route) => sum + route.plannedKm, 0);
+    const completed = currentRoutes.reduce((sum, route) => sum + route.completedKm, 0);
+    const remaining = currentRoutes.reduce((sum, route) => sum + route.remainingKm, 0);
+    const progress = currentRoutes.length === 1 ? currentRoutes[0].progressPct : planned > 0 ? (completed / planned) * 100 : 0;
+    const currentSourceGap = filteredRoutes.some((route) => route.currentSourceGap);
+    return { planned, completed, remaining, progress, available: currentRoutes.length > 0, sourceNote: currentRoutes.length ? (isAr ? "صفوف المسارات · أغسطس 2026" : "Route-table grain · Aug 2026") : currentSourceGap ? (isAr ? "HSCT · غير مدرج في مصدر أغسطس 2026" : "HSCT · not reported in the August 2026 source") : (isAr ? "لا توجد علاقة مدعومة بالمصدر" : "No source-supported relationship") };
+  }, [contractorFilter, filteredRoutes, forecastFilter, isAr, packageFilter, region, routeFilter, statusFilter]);
   const selected: SelectedTrack = selectedProgrammeId
     ? { kind: "programme", route: networkRoutes.find((route) => route.id === selectedProgrammeId) ?? networkRoutes[0] }
     : selectedFeature ? { kind: "inventory", feature: selectedFeature } : null;
 
+  const budgetRoutes = useMemo(() => (
+    region === "all" || region === "ADM"
+      ? networkRoutes.filter((route) => matchesProgramme(route, {
+        routeFilter,
+        packageFilter,
+        statusFilter: "all",
+        contractorFilter: "all",
+        forecastFilter: "all"
+      }))
+      : []
+  ), [packageFilter, region, routeFilter]);
   const filteredContracts = useMemo(() => {
-    const ids = new Set(filteredRoutes.map((route) => route.id));
+    const ids = new Set(budgetRoutes.map((route) => route.id));
     return contracts.filter((contract) => contract.routeIds.some((id) => ids.has(id)));
-  }, [filteredRoutes]);
+  }, [budgetRoutes]);
+  const budgetMode = routeFilter === "hsct"
+    ? "current-source-gap"
+    : region === "AAM" || region === "DRM"
+      ? "unsupported-region"
+    : routeFilter !== "all" || packageFilter !== "all" ? "mapped-subset" : "programme-wide";
 
-  const hasFilters = [region, featureClass, routeFilter, packageFilter, statusFilter, contractorFilter, conditionFilter, materialFilter, forecastFilter].some((value) => value !== "all");
+  const hasFilters = Object.values(filters).some((value) => value !== "all");
   const resetFilters = () => {
-    setRegion("all"); setFeatureClass("all"); setRouteFilter("all"); setPackageFilter("all"); setStatusFilter("all");
-    setContractorFilter("all"); setConditionFilter("all"); setMaterialFilter("all"); setForecastFilter("all"); setQuery("");
+    setFilters(defaultFilters); setQuery("");
     setSelectedFeature(null); setSelectedProgrammeId(null);
   };
 
   const selectProgramme = useCallback((id: string | null) => {
     setSelectedFeature(null);
     setSelectedProgrammeId(id);
+    if (id) {
+      setFilters((current) => ({ ...current, region: "ADM", routeFilter: id }));
+    }
   }, []);
 
   const selectInventory = useCallback((feature: InventoryFeature | null) => {
     setSelectedProgrammeId(null);
     setSelectedFeature(feature);
-    if (feature) setRouteFilter("all");
+    if (feature) {
+      setFilters((current) => ({
+        ...current,
+        region: feature.properties.municipality,
+        featureClass: feature.properties.featureClass,
+        routeFilter: "all",
+        packageFilter: "all",
+        statusFilter: "all",
+        contractorFilter: "all",
+        forecastFilter: "all"
+      }));
+    }
   }, []);
 
   const changeRegion = useCallback((value: RegionCode) => {
@@ -215,9 +325,23 @@ export function CyclingDashboard() {
   }, []);
 
   const focusInventory = useCallback((feature: InventoryFeature) => {
+    selectInventory(feature);
+  }, [selectInventory]);
+
+  const selectContractRoutes = useCallback((routeIds: readonly string[]) => {
+    setSelectedFeature(null);
+    if (routeIds.length === 1) {
+      selectProgramme(routeIds[0]);
+      return;
+    }
     setSelectedProgrammeId(null);
-    setSelectedFeature(feature);
-    setRouteFilter("all");
+    setFilters((current) => ({ ...current, region: "ADM", routeFilter: "tracks-3-4" }));
+  }, [selectProgramme]);
+
+  const selectInventoryCharacteristic = useCallback((field: "conditionFilter", value: string) => {
+    setSelectedProgrammeId(null);
+    setSelectedFeature(null);
+    setFilters((current) => ({ ...current, routeFilter: "all", [field]: value }));
   }, []);
 
   const regionFilterOptions: FilterOption[] = (["all", "ADM", "AAM", "DRM"] as RegionCode[]).map((value) => {
@@ -226,6 +350,8 @@ export function CyclingDashboard() {
   });
   const routeFilterOptions: FilterOption[] = [
     { value: "all", label: isAr ? "جميع مسارات البرنامج" : "All programme routes", count: programmeCount("routeFilter", "all") },
+    { value: "track-1", label: isAr ? "المسار 1 · جميع الحزم" : "Track 1 · all packages", count: programmeCount("routeFilter", "track-1"), disabled: programmeCount("routeFilter", "track-1") === 0 },
+    { value: "tracks-3-4", label: isAr ? "المساران 3 و4 · العقد المشترك" : "Tracks 3 & 4 · shared contract", count: programmeCount("routeFilter", "tracks-3-4"), disabled: programmeCount("routeFilter", "tracks-3-4") === 0 },
     ...networkRoutes.map((route) => {
       const count = programmeCount("routeFilter", route.id);
       return { value: route.id, label: routeLabel(route, locale), count, disabled: count === 0 };
@@ -251,19 +377,84 @@ export function CyclingDashboard() {
     { value: "all", label: isAr ? "جميع الحالات المسجلة" : "All recorded conditions", count: inventoryCount("conditionFilter", "all") },
     ...inventoryOptions.conditions.map((value) => { const count = inventoryCount("conditionFilter", value); return { value, label: inventoryValueLabel(value, locale), count, disabled: Boolean(inventory) && count === 0 }; })
   ];
-  const materialFilterOptions: FilterOption[] = [
-    { value: "all", label: isAr ? "جميع المواد" : "All recorded materials", count: inventoryCount("materialFilter", "all") },
-    ...inventoryOptions.materials.map((value) => { const count = inventoryCount("materialFilter", value); return { value, label: inventoryValueLabel(value, locale), count, disabled: Boolean(inventory) && count === 0 }; })
-  ];
+  const widthFilterOptions: FilterOption[] = ([
+    ["all", isAr ? "جميع العروض المسجلة" : "All recorded widths"],
+    ["under-2.5", isAr ? "أقل من 2.5 م" : "Under 2.5 m"],
+    ["2.5-3.49", isAr ? "2.5–3.49 م" : "2.5–3.49 m"],
+    ["3.5-4.49", isAr ? "3.5–4.49 م" : "3.5–4.49 m"],
+    ["4.5-plus", isAr ? "4.5 م فأكثر" : "4.5 m and wider"]
+  ] as const).map(([value, label]) => { const count = inventoryCount("widthFilter", value); return { value, label, disabled: Boolean(inventory) && value !== "all" && count === 0 }; });
+  const activeChips = [
+    region !== "all" ? { key: "region", label: `${isAr ? "المنطقة" : "Region"}: ${regionLabel(region, locale)}`, clear: () => changeRegion("all") } : null,
+    routeFilter !== "all" ? { key: "route", label: `${isAr ? "المسار" : "Route"}: ${routeFilterOptions.find((option) => option.value === routeFilter)?.label}`, clear: () => { setRouteFilter("all"); setSelectedProgrammeId(null); } } : null,
+    packageFilter !== "all" ? { key: "package", label: `${isAr ? "الحزمة" : "Package"}: ${packageFilterOptions.find((option) => option.value === packageFilter)?.label}`, clear: () => setPackageFilter("all") } : null,
+    statusFilter !== "all" ? { key: "status", label: `${isAr ? "الحالة" : "Status"}: ${statusFilterOptions.find((option) => option.value === statusFilter)?.label}`, clear: () => setStatusFilter("all") } : null,
+    contractorFilter !== "all" ? { key: "contractor", label: `${isAr ? "المقاول" : "Contractor"}: ${contractorFilterOptions.find((option) => option.value === contractorFilter)?.label}`, clear: () => setContractorFilter("all") } : null,
+    conditionFilter !== "all" ? { key: "condition", label: `${isAr ? "حالة الأصل" : "Condition"}: ${conditionFilterOptions.find((option) => option.value === conditionFilter)?.label}`, clear: () => setConditionFilter("all") } : null,
+    widthFilter !== "all" ? { key: "width", label: `${isAr ? "العرض" : "Width"}: ${widthFilterOptions.find((option) => option.value === widthFilter)?.label}`, clear: () => setWidthFilter("all") } : null,
+    forecastFilter !== "all" ? { key: "forecast", label: `${isAr ? "التوقع" : "Forecast"}: ${forecastFilterOptions.find((option) => option.value === forecastFilter)?.label}`, clear: () => setForecastFilter("all") } : null,
+    featureClass !== "all" ? { key: "class", label: `${isAr ? "طبقة الخريطة" : "Map layer"}: ${inventoryClassLabel(featureClass, locale)}`, clear: () => setFeatureClass("all") } : null,
+    selectedFeature ? { key: "selection", label: `${isAr ? "المحدد" : "Selected"}: ${inventoryFeatureLabel(selectedFeature, locale)}`, clear: () => setSelectedFeature(null) } : null
+  ].filter((chip): chip is { key: string; label: string; clear: () => void } => Boolean(chip));
+  const routeScopeName = routeFilter === "all"
+    ? null
+    : routeFilterOptions.find((option) => option.value === routeFilter)?.label ?? routeFilter;
+  const programmeScopeParts = [
+    region === "AAM" || region === "DRM" ? regionLabel(region, locale) : (isAr ? "برنامج أبوظبي" : "Abu Dhabi programme"),
+    routeScopeName,
+    packageFilter !== "all" ? packageFilterOptions.find((option) => option.value === packageFilter)?.label : null,
+    statusFilter !== "all" ? statusFilterOptions.find((option) => option.value === statusFilter)?.label : null,
+    contractorFilter !== "all" ? contractorFilterOptions.find((option) => option.value === contractorFilter)?.label : null,
+    forecastFilter !== "all" ? forecastFilterOptions.find((option) => option.value === forecastFilter)?.label : null
+  ].filter(Boolean).join(" · ");
+  const inventoryScopeParts = [
+    selectedFeature ? `${isAr ? "المحدد" : "Selected"}: ${inventoryFeatureLabel(selectedFeature, locale)}` : null,
+    regionLabel(region, locale),
+    featureClass !== "all" ? inventoryClassLabel(featureClass, locale) : null,
+    conditionFilter !== "all" ? inventoryValueLabel(conditionFilter, locale) : null,
+    widthFilter !== "all" ? widthFilterOptions.find((option) => option.value === widthFilter)?.label : null
+  ].filter(Boolean).join(" · ");
+  const budgetScopeParts = [
+    region === "AAM" || region === "DRM" ? regionLabel(region, locale) : (isAr ? "برنامج أبوظبي" : "Abu Dhabi programme"),
+    routeScopeName,
+    packageFilter !== "all" ? packageFilterOptions.find((option) => option.value === packageFilter)?.label : null
+  ].filter(Boolean).join(" · ");
+  const filteredViewLabel = activeChips.length
+    ? activeChips.map((chip) => chip.label).join(" · ")
+    : (isAr ? "جميع المناطق وجميع النطاقات المدعومة" : "All regions and all source-supported scopes");
+  const inventoryProgrammeLinkMissing = routeFilter !== "all" || packageFilter !== "all" || statusFilter !== "all" || contractorFilter !== "all" || forecastFilter !== "all";
+  const programmeInventoryLinkMissing = featureClass !== "all" || conditionFilter !== "all" || widthFilter !== "all";
+  const budgetFiltersUnlinked = statusFilter !== "all" || contractorFilter !== "all" || forecastFilter !== "all" || programmeInventoryLinkMissing;
+  const characteristicFeatures = selectedFeature ? [selectedFeature] : filteredInventory;
+  const mappedContractValueM = filteredContracts.reduce((sum, contract) => sum + (contract.valueM ?? 0), 0);
+  const mappedContractHasValue = filteredContracts.some((contract) => contract.valueM != null);
+  const fundingKpiLabel = budgetMode === "mapped-subset"
+    ? (isAr ? "مرجع العقد المرتبط" : "Mapped contract reference")
+    : budgetMode === "current-source-gap"
+      ? (isAr ? "ميزانية المسار الحالية" : "Current route budget")
+      : (isAr ? "وضع التمويل" : "Funding position");
+  const fundingKpiValue = budgetMode === "programme-wide"
+    ? budgetBillions(fmt(programme.approvedBudgetBn), locale)
+    : budgetMode === "mapped-subset" && mappedContractHasValue
+      ? `${isAr ? "د.إ" : "AED"} ${mappedContractValueM >= 1000 ? `${fmt(mappedContractValueM / 1000)}${isAr ? " مليار" : "bn"}` : `${fmt(mappedContractValueM, 0)}${isAr ? " مليون" : "m"}`}`
+      : "—";
+  const fundingKpiNote = budgetMode === "programme-wide"
+    ? (isAr ? "على مستوى البرنامج · المطلوب 4.0 · الفجوة 2.3 · ديسمبر 2025" : "Programme-wide · Required 4.0 · Gap 2.3 · Dec 2025")
+    : budgetMode === "mapped-subset"
+      ? (isAr ? "قيمة عقد مرتبطة بالمصدر؛ وليست مخصص تمويل للمسار" : "Source-mapped contract value; not a route funding allocation")
+      : budgetMode === "current-source-gap"
+        ? (isAr ? "غير مدرجة لمسار HSCT في مصدر أغسطس 2026" : "Not reported for HSCT in the August 2026 source")
+        : (isAr ? "لا توجد علاقة ميزانية موثوقة لهذه المنطقة" : "No reliable budget relationship for this region");
 
   return (
     <section id="dashboard" className="cycling-dashboard-section executive-cycling-dashboard">
+      <a className="executive-skip-link" href="#executive-dashboard-main">{isAr ? "تخطي إلى محتوى اللوحة" : "Skip to dashboard content"}</a>
       <nav className="cycling-app-bar executive-app-bar" aria-label={isAr ? "التنقل الرئيسي" : "Primary navigation"}>
         <a className="cycling-brand" href="#dashboard" aria-label={isAr ? "لوحة ذكاء شبكة الدراجات" : "Cycling Intelligence dashboard"}>
           <img src="/images/adsc-logo.svg" alt="" />
           <span><strong>{isAr ? "ذكاء شبكة الدراجات" : "Cycling Intelligence"}</strong><small>{isAr ? "لوحة نظم المعلومات الجغرافية التنفيذية" : "Executive GIS dashboard"}</small></span>
         </a>
-        <div className="cycling-app-status"><i /><span>{isAr ? "بيانات موثقة من المصدر" : "Source-qualified data"}</span><small>{isAr ? "حالة التقدم · ديسمبر 2025" : "Progress status · Dec 2025"}</small></div>
+        <div className="cycling-app-status"><i /><span>{isAr ? "بيانات موثقة من المصدر" : "Source-qualified data"}</span><small>{isAr ? "حالة البرنامج · أغسطس 2026" : "Programme status · Aug 2026"}</small></div>
         <div className="cycling-app-actions">
           <a href="#map-workspace"><MapPinned /><span>{isAr ? "الخريطة" : "Map"}</span></a>
           <button onClick={() => setLocale(isAr ? "en" : "ar")} aria-label={isAr ? "English" : "العربية"}><Languages /><span>{isAr ? "EN" : "AR"}</span></button>
@@ -271,12 +462,12 @@ export function CyclingDashboard() {
         </div>
       </nav>
 
-      <main className="executive-dashboard-shell">
+      <main id="executive-dashboard-main" className="executive-dashboard-shell" tabIndex={-1}>
         <header className="executive-dashboard-intro">
           <div><p>{isAr ? "شبكة الدراجات · غرفة القرار" : "CYCLING NETWORK · DECISION ROOM"}</p><h1>{isAr ? "لوحة تنفيذ شبكة أبوظبي" : "Abu Dhabi Cycling Executive Dashboard"}</h1><span>{isAr ? "نظرة موحدة على التنفيذ والتمويل والمخزون المكاني." : "One coordinated view of delivery, funding, and mapped network inventory."}</span></div>
           <details className="executive-methodology executive-methodology-top">
             <summary><Info />{isAr ? "المصادر والمنهجية" : "Sources & methodology"}<ChevronDown /></summary>
-            <MethodologyContent summary={summary} locale={locale} />
+            <MethodologyContent summary={summary} locale={locale} asBuiltSummary={asBuiltSummary} />
           </details>
         </header>
 
@@ -284,39 +475,49 @@ export function CyclingDashboard() {
           <div className="executive-section-label"><ListFilter /><span><strong id="global-filter-title">{isAr ? "مرشحات موحدة" : "Global filters"}</strong><small>{isAr ? "تعمل على جميع المكونات المدعومة بالمصدر" : "Updates every source-supported view"}</small></span></div>
           <div className="executive-filter-grid">
             <FilterDropdown id="region" locale={locale} label={isAr ? "المنطقة" : "Region"} value={region} options={regionFilterOptions} onChange={(value) => changeRegion(value as RegionCode)} />
-            <FilterDropdown id="route" locale={locale} label={isAr ? "المسار" : "Track / route"} value={routeFilter} options={routeFilterOptions} onChange={(value) => { setRouteFilter(value); setSelectedFeature(null); setSelectedProgrammeId(value === "all" ? null : value); if (value !== "all") setRegion("ADM"); }} />
+            <FilterDropdown id="route" locale={locale} label={isAr ? "المسار" : "Track / route"} value={routeFilter} options={routeFilterOptions} onChange={(value) => { setRouteFilter(value); setSelectedFeature(null); setSelectedProgrammeId(value === "all" || value === "track-1" || value === "tracks-3-4" ? null : value); if (value !== "all") setRegion("ADM"); }} />
             <FilterDropdown id="package" locale={locale} label={isAr ? "المشروع / الحزمة" : "Project / package"} value={packageFilter} options={packageFilterOptions} onChange={setPackageFilter} />
             <FilterDropdown id="status" locale={locale} label={isAr ? "الحالة" : "Status"} value={statusFilter} options={statusFilterOptions} onChange={setStatusFilter} />
-            <FilterDropdown id="condition" locale={locale} label={isAr ? "حالة الأصل" : "Condition"} value={conditionFilter} options={conditionFilterOptions} onChange={setConditionFilter} />
-            <FilterDropdown id="contractor" locale={locale} label={isAr ? "المقاول" : "Contractor"} value={contractorFilter} options={contractorFilterOptions} onChange={setContractorFilter} />
-            <FilterDropdown id="material" locale={locale} label={isAr ? "المادة" : "Material"} value={materialFilter} options={materialFilterOptions} onChange={setMaterialFilter} />
-            <FilterDropdown id="forecast" locale={locale} label={isAr ? "التوقع" : "Forecast / date"} value={forecastFilter} options={forecastFilterOptions} onChange={setForecastFilter} />
-            <button className="executive-filter-reset" onClick={resetFilters} disabled={!hasFilters && !query}><RefreshCcw />{isAr ? "إعادة الضبط" : "Reset"}</button>
+            <button type="button" className={`executive-more-filter ${moreFiltersOpen ? "is-open" : ""}`} onClick={() => setMoreFiltersOpen((value) => !value)} aria-expanded={moreFiltersOpen} aria-controls="executive-secondary-filters"><SlidersHorizontal /><span>{isAr ? "مزيد من المرشحات" : "More filters"}</span>{activeChips.filter((chip) => !["region", "route", "package", "status", "class"].includes(chip.key)).length ? <i>{activeChips.filter((chip) => !["region", "route", "package", "status", "class"].includes(chip.key)).length}</i> : null}<ChevronDown /></button>
+            <button className="executive-filter-reset" onClick={resetFilters} disabled={!hasFilters && !query && !selectedFeature && !selectedProgrammeId}><RefreshCcw />{isAr ? "إعادة الضبط" : "Reset"}</button>
+            {moreFiltersOpen ? <div className="executive-secondary-filters" id="executive-secondary-filters">
+              <FilterDropdown id="condition" locale={locale} label={isAr ? "حالة الأصل" : "Condition"} value={conditionFilter} options={conditionFilterOptions} onChange={setConditionFilter} />
+              <FilterDropdown id="contractor" locale={locale} label={isAr ? "المقاول" : "Contractor"} value={contractorFilter} options={contractorFilterOptions} onChange={setContractorFilter} />
+              <FilterDropdown id="width" locale={locale} label={isAr ? "العرض" : "Width"} value={widthFilter} options={widthFilterOptions} onChange={(value) => setWidthFilter(value as WidthBand)} />
+              <FilterDropdown id="forecast" locale={locale} label={isAr ? "التوقع" : "Forecast / date"} value={forecastFilter} options={forecastFilterOptions} onChange={setForecastFilter} />
+            </div> : null}
+            {activeChips.length ? <div className="executive-filter-chips" aria-label={isAr ? "المرشحات النشطة" : "Active filters"}>{activeChips.map((chip) => <button type="button" key={chip.key} onClick={chip.clear}><span>{chip.label}</span><X /></button>)}<button type="button" className="is-clear-all" onClick={resetFilters}>{isAr ? "مسح الكل" : "Clear all"}</button></div> : null}
           </div>
         </section>
 
+        <div className="executive-filter-context" role="status" data-active-scope={filteredViewLabel}>
+          <span>{activeChips.length ? (isAr ? "العرض المفلتر" : "FILTERED VIEW") : (isAr ? "العرض الشامل" : "OVERALL VIEW")}</span>
+          <strong>{filteredViewLabel}</strong>
+          <small>{isAr ? "كل قسم يستجيب فقط للروابط المدعومة بين المصادر." : "Each section responds only where a source-supported relationship exists."}</small>
+        </div>
+
         <section className="executive-kpi-strip" aria-label={isAr ? "مؤشرات الأداء التنفيذية" : "Executive KPIs"}>
-          <ExecutiveKpi icon={Waypoints} label={isAr ? "نطاق الشبكة" : "Network scope"} value={totals.planned} decimals={1} suffix={` ${distanceUnit(locale)}`} note={`${filteredRoutes.length} ${isAr ? "محاور برنامج" : "programme alignments"}`} />
-          <ExecutiveKpi icon={CheckCircle2} label={isAr ? "المنجز" : "Delivered / completed"} value={totals.completed} decimals={1} suffix={` ${distanceUnit(locale)}`} note={`${fmt(totals.remaining)} ${distanceUnit(locale)} ${isAr ? "متبقي" : "remaining"}`} tone="blue" />
-          <ExecutiveKpi icon={Gauge} label={isAr ? "التقدم الكلي" : "Overall progress"} value={totals.progress} decimals={1} suffix="%" note={isAr ? "أسفلت منجز مقابل المخطط" : "completed asphalt vs planned"} tone="green" />
-          <ExecutiveKpi icon={CircleDollarSign} label={isAr ? "فجوة التمويل" : "Funding gap"} value={programme.neededBudgetBn - programme.approvedBudgetBn} decimals={1} prefix={isAr ? "" : "AED "} suffix={isAr ? " مليار درهم" : "bn"} note={`${fmt((programme.approvedBudgetBn / programme.neededBudgetBn) * 100)}% ${isAr ? "ممولة على مستوى البرنامج" : "programme-wide funded"}`} tone="gold" />
-          <article className="executive-kpi executive-kpi-milestone"><span><Milestone /></span><div><small>{isAr ? "المعلم الرئيسي القادم" : "Next major milestone"}</small><strong>{nextMilestone ? formatForecast(nextMilestone.forecast, locale) : "—"}</strong><em>{nextMilestone ? routeLabel(nextMilestone, locale) : isAr ? "لا توجد مسارات مطابقة" : "No matching routes"}</em></div></article>
+          <ExecutiveKpi icon={Waypoints} label={isAr ? "نطاق البرنامج" : "Programme scope"} value={totals.planned} available={totals.available} decimals={1} suffix={` ${distanceUnit(locale)}`} note={totals.sourceNote} />
+          <ExecutiveKpi icon={CheckCircle2} label={isAr ? "المنجز" : "Delivered"} value={totals.completed} available={totals.available} decimals={1} suffix={` ${distanceUnit(locale)}`} note={totals.sourceNote} tone="blue" />
+          <ExecutiveKpi icon={Route} label={isAr ? "المتبقي" : "Remaining"} value={totals.remaining} available={totals.available} decimals={1} suffix={` ${distanceUnit(locale)}`} note={totals.sourceNote} tone="gold" />
+          <ExecutiveKpi icon={Gauge} label={isAr ? "نسبة التنفيذ" : "Overall delivery"} value={totals.progress} available={totals.available} decimals={1} suffix="%" note={totals.sourceNote} tone="green" />
+          <article className="executive-kpi is-gold"><span><CircleDollarSign /></span><div><small>{fundingKpiLabel}</small><strong>{fundingKpiValue}</strong><em>{fundingKpiNote}</em></div></article>
         </section>
 
         <section id="map-workspace" className="executive-map-section" aria-labelledby="map-title">
-          <header className="executive-section-heading"><div><p>{isAr ? "تجربة نظم المعلومات الجغرافية الرئيسية" : "PRIMARY GIS EXPERIENCE"}</p><h2 id="map-title">{isAr ? "شبكة التنفيذ والمخزون المكاني" : "Programme routes & mapped inventory"}</h2><span>{isAr ? "اختر مساراً من الخريطة أو القائمة لفتح تفاصيل موثقة." : "Select a programme route or municipal track from the map or list to inspect source-backed detail."}</span></div><div className="executive-source-badge"><ShieldCheck /><span>{selectedFeature ? (isAr ? "تم إيقاف طبقة البرنامج أثناء فحص الأصل" : "Programme overlay paused for GIS inspection") : region === "AAM" || region === "DRM" ? (isAr ? "طبقة البرنامج متاحة لمنطقة أبوظبي" : "Programme overlay is available in Abu Dhabi") : (isAr ? "المسارات والمخزون منفصلان بالمصدر" : "Source domains kept distinct")}</span></div></header>
+          <header className="executive-section-heading"><div><p>{isAr ? "تجربة نظم المعلومات الجغرافية الرئيسية" : "PRIMARY GIS EXPERIENCE"}</p><h2 id="map-title">{isAr ? "شبكة التنفيذ والمخزون المكاني" : "Programme routes & mapped inventory"}</h2><span>{isAr ? "اختر مساراً من الخريطة أو القائمة لفتح تفاصيل موثقة." : "Select a programme route or municipal track from the map or list to inspect source-backed detail."}</span></div><div className="executive-source-badge"><ShieldCheck /><span>{selectedProgrammeId === "hsct" ? (isAr ? "HSCT · محاذاة مرجعية من أساس التصميم 2022" : "HSCT · 2022 BOD reference alignment") : selectedFeature ? (isAr ? "تم إيقاف طبقة البرنامج أثناء فحص الأصل" : "Programme overlay paused for GIS inspection") : region === "AAM" || region === "DRM" ? (isAr ? "طبقة البرنامج متاحة لمنطقة أبوظبي" : "Programme overlay is available in Abu Dhabi") : (isAr ? "المسارات والمخزون منفصلان بالمصدر" : "Source domains kept distinct")}</span></div></header>
           <div className="executive-map-workspace">
             <div className="executive-map-card">
-              {inventory ? <InventoryMap
-                data={inventory}
+              {mapInventory ? <InventoryMap
+                data={mapInventory}
                 locale={locale}
                 theme={theme}
                 region={region}
                 featureClass={featureClass}
                 condition={conditionFilter}
-                material={materialFilter}
                 programmeRoutes={programmeRoutesForMap}
                 mainRoutes={filteredRoutes}
+                asBuilt={asBuiltForMap}
                 selectedProgrammeId={selectedProgrammeId}
                 selectedId={selectedFeature?.properties.id ?? null}
                 onClassChange={(value) => { setFeatureClass(value); setSelectedFeature(null); }}
@@ -339,16 +540,16 @@ export function CyclingDashboard() {
         </section>
 
         <section className="executive-support-grid" aria-label={isAr ? "التحليلات الداعمة" : "Supporting analytics"}>
-          <ProgrammeProgress routes={filteredRoutes} locale={locale} />
-          <BudgetView contracts={filteredContracts} locale={locale} />
-          <CharacteristicsView features={filteredInventory} locale={locale} region={region} />
+          <ProgrammeProgress routes={filteredRoutes} locale={locale} scopeLabel={programmeScopeParts} disconnected={programmeInventoryLinkMissing} onSelectRoute={(route) => selectProgramme(route.id)} />
+          <BudgetView contracts={filteredContracts} locale={locale} mode={budgetMode} scopeLabel={budgetScopeParts} ignoredFilters={budgetFiltersUnlinked} onSelectContract={selectContractRoutes} />
+          <CharacteristicsView features={characteristicFeatures} locale={locale} scopeLabel={inventoryScopeParts} programmeFiltersUnlinked={inventoryProgrammeLinkMissing} activeCondition={conditionFilter} onConditionSelect={(value) => selectInventoryCharacteristic("conditionFilter", value)} />
         </section>
 
-        <ExecutiveInsights routes={filteredRoutes} inventoryFeatures={filteredInventory} locale={locale} />
+        <ExecutiveAttention routes={filteredRoutes} locale={locale} asBuiltSummary={asBuiltSummary} scopeLabel={programmeScopeParts} showReconciliation={(region === "all" || region === "ADM") && [routeFilter, packageFilter, statusFilter, contractorFilter, forecastFilter].every((value) => value === "all")} onSelectRoute={(route) => selectProgramme(route.id)} />
 
         <details className="executive-methodology executive-methodology-bottom">
           <summary><Info />{isAr ? "تفاصيل المصادر وحدود المقارنة" : "Source details & comparison boundaries"}<ChevronDown /></summary>
-          <MethodologyContent summary={summary} locale={locale} />
+          <MethodologyContent summary={summary} locale={locale} asBuiltSummary={asBuiltSummary} />
         </details>
       </main>
     </section>
@@ -439,15 +640,14 @@ function FilterDropdown({ id, label, locale, value, options, onChange }: { id: s
         }
       }}>
         <span><strong>{option.label}</strong>{option.disabled && option.value !== value ? <small>{locale === "ar" ? "لا توجد بيانات مطابقة" : "No matching data"}</small> : null}</span>
-        {option.count != null ? <em>{new Intl.NumberFormat(locale === "ar" ? "ar-AE" : "en-GB").format(option.count)}</em> : null}
         <i>{option.value === value ? <Check /> : null}</i>
       </button>)}
     </div> : null}
   </div>;
 }
 
-function ExecutiveKpi({ icon: Icon, label, value, decimals, prefix = "", suffix, note, tone = "teal" }: { icon: LucideIcon; label: string; value: number; decimals: number; prefix?: string; suffix: string; note: string; tone?: "teal" | "blue" | "green" | "gold" }) {
-  return <article className={`executive-kpi is-${tone}`}><span><Icon /></span><div><small>{label}</small><strong><CountUp value={value} decimals={decimals} prefix={prefix} suffix={suffix} /></strong><em>{note}</em></div></article>;
+function ExecutiveKpi({ icon: Icon, label, value, available = true, decimals, prefix = "", suffix, note, tone = "teal" }: { icon: LucideIcon; label: string; value: number; available?: boolean; decimals: number; prefix?: string; suffix: string; note: string; tone?: "teal" | "blue" | "green" | "gold" }) {
+  return <article className={`executive-kpi is-${tone}`} data-available={available}><span><Icon /></span><div><small>{label}</small><strong>{available ? <CountUp value={value} decimals={decimals} prefix={prefix} suffix={suffix} /> : "—"}</strong><em>{note}</em></div></article>;
 }
 
 function TrackExplorer({ inventory, locale, onSelectFeature, onSelectRoute, query, routes, setQuery }: {
@@ -455,17 +655,18 @@ function TrackExplorer({ inventory, locale, onSelectFeature, onSelectRoute, quer
 }) {
   const isAr = locale === "ar";
   const listRef = useRef<HTMLDivElement | null>(null);
-  const normalized = query.trim().toLowerCase();
+  const deferredQuery = useDeferredValue(query);
+  const normalized = deferredQuery.trim().toLowerCase();
   const visibleRoutes = routes.filter((route) => !normalized || `${route.name} ${route.label} ${route.contractor} ${route.packageName} ${routeLabel(route, locale)} ${routePackageLabel(route, locale)} ${routeContractorLabel(route, locale)}`.toLowerCase().includes(normalized));
   const matchingInventory = inventory.filter((feature) => !normalized || `${feature.properties.name} ${feature.properties.nameAr ?? ""} ${feature.properties.city ?? ""} ${feature.properties.zone ?? ""} ${inventoryFeatureLabel(feature, locale)}`.toLowerCase().includes(normalized));
   const visibleInventory = matchingInventory.slice(0, 80);
   useEffect(() => { listRef.current?.scrollTo({ top: 0, behavior: "auto" }); }, [inventory, query, routes]);
   return <div className="executive-track-explorer">
-    <header><div><p>{isAr ? "استكشاف المسارات" : "TRACK EXPLORER"}</p><h3>{isAr ? "بحث واختيار" : "Search & select"}</h3></div><span>{visibleRoutes.length} {isAr ? "برنامج" : "programme"} · {matchingInventory.length} {isAr ? "مسار بلدي" : "mapped"}</span></header>
+    <header><div><p>{isAr ? "استكشاف المسارات" : "TRACK EXPLORER"}</p><h3>{isAr ? "بحث واختيار" : "Search & select"}</h3></div><span>{isAr ? "البرنامج الحالي · المخزون البلدي" : "Current programme · municipal GIS"}</span></header>
     <div className="executive-track-search"><Search /><input aria-label={isAr ? "البحث في المسارات" : "Search tracks"} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={isAr ? "ابحث بالاسم أو الحزمة أو المقاول" : "Search name, package, contractor or place"} />{query ? <button onClick={() => setQuery("")} aria-label={isAr ? "مسح البحث" : "Clear search"}><X /></button> : null}</div>
-    <div className="executive-track-list" data-lenis-prevent ref={listRef}>
-      {visibleRoutes.length ? <div className="executive-list-group"><span>{isAr ? "مسارات البرنامج" : "Programme routes"}</span>{visibleRoutes.map((route) => <button key={route.id} onClick={() => onSelectRoute(route)}><i style={{ background: route.color }} /><span><strong>{routeLabel(route, locale)}</strong><small>{routePackageLabel(route, locale)} · {statusText[locale][route.status]}</small></span><em>{Math.round(progressOf(route))}%</em></button>)}</div> : null}
-      {visibleInventory.length ? <div className="executive-list-group"><span>{isAr ? "المخزون البلدي" : "Municipal inventory"}</span>{visibleInventory.map((feature) => <button key={feature.properties.id} onClick={() => onSelectFeature(feature)}><i style={{ background: regionColors[feature.properties.municipality] }} /><span><strong>{inventoryFeatureLabel(feature, locale)}</strong><small>{regionLabel(feature.properties.municipality, locale)} · {inventoryClassLabel(feature.properties.featureClass, locale)}</small></span><em>{fmt(feature.properties.lengthM / 1000, 2)} {distanceUnit(locale)}</em></button>)}{matchingInventory.length > visibleInventory.length ? <p className="executive-list-limit">{isAr ? "حسّن البحث لعرض المزيد" : `Refine search to inspect the remaining ${matchingInventory.length - visibleInventory.length} mapped tracks.`}</p> : null}</div> : null}
+    <div className="executive-track-list" data-lenis-prevent ref={listRef} aria-busy={query !== deferredQuery}>
+      {visibleRoutes.length ? <div className="executive-list-group"><span>{isAr ? "هيكل مسارات البرنامج" : "Programme route structure"}</span>{visibleRoutes.map((route) => <button key={route.id} onClick={() => onSelectRoute(route)}><i style={{ background: route.color }} /><span><strong>{routeLabel(route, locale)}</strong><small>{route.currentSourceGap ? `${isAr ? "مسار الدراجات عالي السرعة" : route.name} · ${isAr ? "فجوة في المصدر الحالي" : "Current-source gap"}` : `${routePackageLabel(route, locale)} · ${statusText[locale][route.status]}`}</small></span><em>{route.currentSourceGap ? (isAr ? "يلزم تحديث" : "Update required") : `${Math.round(progressOf(route))}%`}</em></button>)}</div> : null}
+      {visibleInventory.length ? <div className="executive-list-group"><span>{isAr ? "المخزون البلدي" : "Municipal inventory"}</span>{visibleInventory.map((feature) => <button key={feature.properties.id} onClick={() => onSelectFeature(feature)}><i style={{ background: regionColors[feature.properties.municipality] }} /><span><strong>{inventoryFeatureLabel(feature, locale)}</strong><small>{regionLabel(feature.properties.municipality, locale)} · {inventoryClassLabel(feature.properties.featureClass, locale)}</small></span><em>{fmt(feature.properties.lengthM / 1000, 2)} {distanceUnit(locale)}</em></button>)}{matchingInventory.length > visibleInventory.length ? <p className="executive-list-limit">{isAr ? "حسّن البحث لعرض المزيد من المسارات" : "Refine the search to inspect more mapped tracks."}</p> : null}</div> : null}
       {!visibleRoutes.length && !visibleInventory.length ? <div className="executive-list-empty"><Search /><strong>{isAr ? "لا توجد نتائج" : "No matching tracks"}</strong><span>{isAr ? "جرّب توسيع المرشحات أو تغيير البحث." : "Broaden the global filters or change the search."}</span></div> : null}
     </div>
   </div>;
@@ -477,60 +678,104 @@ function TrackDetails({ locale, selected, onClear }: { locale: "en" | "ar"; sele
   const back = <button type="button" className="executive-detail-back" onClick={onClear}><ArrowLeft /><span>{isAr ? "العودة إلى قائمة المسارات" : "Back to track list"}</span></button>;
   if (selected.kind === "programme") {
     const route = selected.route;
-    return <section className="executive-selected-detail">{back}<header><span style={{ background: route.color }} /><div><small>{isAr ? "مسار برنامج محدد" : "SELECTED PROGRAMME ROUTE"}</small><h3>{routeLabel(route, locale)}</h3></div></header><div className="executive-detail-progress"><span><b>{Math.round(progressOf(route))}%</b>{isAr ? "مكتمل" : "complete"}</span><div><i style={{ width: `${Math.min(100, progressOf(route))}%`, background: route.color }} /></div><small>{fmt(route.completedKm)} / {fmt(route.plannedKm)} {distanceUnit(locale)}</small></div><dl><Detail label={isAr ? "المنطقة" : "Region"} value={isAr ? "برنامج أبوظبي" : "Abu Dhabi programme"} /><Detail label={isAr ? "الحزمة" : "Package"} value={routePackageLabel(route, locale)} /><Detail label={isAr ? "التوقع" : "Forecast"} value={formatForecast(route.forecast, locale)} /><Detail label={isAr ? "المقاول" : "Contractor"} value={routeContractorLabel(route, locale)} wide /><Detail label={isAr ? "الحالة" : "Status"} value={statusText[locale][route.status]} /><Detail label={isAr ? "سرعة التصميم" : "Design speed"} value={routeDesignSpeedLabel(route, locale)} /><Detail label={isAr ? "حالة الأصل" : "Condition"} value={isAr ? "غير مسجل في مصدر البرنامج" : "Not recorded in programme source"} /><Detail label={isAr ? "العرض / المادة / الاتجاه" : "Width / material / direction"} value={isAr ? "غير مسجل في مصدر البرنامج" : "Not recorded in programme source"} wide /></dl>{route.structures ? <p className="executive-detail-note"><Layers3 />{routeStructuresLabel(route, locale)}</p> : null}</section>;
+    const unavailable = isAr ? "غير مدرج في مصدر أغسطس 2026" : "Not listed in the August 2026 source";
+    if (route.currentSourceGap) {
+      const notReported = isAr ? "غير مدرج في أحدث مصدر" : "Not reported in latest source";
+      return <section className="executive-selected-detail executive-hsct-detail" data-current-source-gap="true">{back}<header><span style={{ background: route.color }} /><div><small>{isAr ? "مسار برنامج · فجوة في المصدر الحالي" : "PROGRAMME ROUTE · CURRENT-SOURCE GAP"}</small><h3><span>HSCT</span><small>{isAr ? "مسار الدراجات عالي السرعة" : "High-Speed Cycle Track"}</small></h3></div></header><div className="executive-current-source-gap" role="status"><ShieldCheck /><span><strong>{isAr ? "يتطلب تحديث المصدر الحالي" : "Requires current source update"}</strong><small>{isAr ? "لم يرد مسار HSCT في مصدر 26 أغسطس 2026. هذا لا يعني إلغاءه أو حذفه من البرنامج." : "HSCT is not reported in the 26 August 2026 source. This does not mean the route is cancelled or removed."}</small></span></div><dl><Detail label={isAr ? "الوضع في البرنامج" : "Programme standing"} value={isAr ? "مسار برنامج صالح ومحفوظ" : "Valid programme route — retained"} wide /><Detail label={isAr ? "الحالة الحالية" : "Current status"} value={unavailable} wide /><Detail label={isAr ? "التقدم الحالي" : "Current progress"} value={notReported} /><Detail label={isAr ? "التوقع الحالي" : "Current forecast"} value={notReported} /><Detail label={isAr ? "الهندسة الحالية" : "Current geometry"} value={isAr ? "غير متاحة في ملف التنفيذ الفعلي للحزم 1–4" : "Not available in the Packages 1–4 As-Built KMZ"} wide /><Detail label={isAr ? "الهندسة المرجعية" : "Reference geometry"} value={isAr ? "محاذاة مفاهيمية من أساس التصميم 2022 · ليست هندسة تنفيذ فعلي حالية" : "2022 Basis of Design concept alignment · not current As-Built geometry"} wide /><Detail label={isAr ? "سرعة التصميم المرجعية" : "Reference design speed"} value={routeDesignSpeedLabel(route, locale)} /><Detail label={isAr ? "الميزانية الحالية" : "Current budget"} value={notReported} /></dl><div className="executive-historical-references"><CalendarClock /><span><strong>{isAr ? "المراجع التاريخية المتاحة" : "Available historical references"}</strong><ul>{route.historicalScopes?.map((item) => <li key={item.sourceDate}><b>{fmt(item.valueKm, 0)} {distanceUnit(locale)}</b><span>{item.sourceDate.startsWith("2022") ? (isAr ? "أساس التصميم · 2022" : "2022 Basis of Design") : (isAr ? "حالة التقدم · ديسمبر 2025" : "Dec 2025 Progress Status")}</span></li>)}</ul></span></div></section>;
+    }
+    return <section className="executive-selected-detail">{back}<header><span style={{ background: route.color }} /><div><small>{isAr ? "مسار برنامج محدد" : "SELECTED PROGRAMME ROUTE"}</small><h3>{routeLabel(route, locale)}</h3></div></header>{route.currentProgramme ? <div className="executive-detail-progress"><span><b>{Math.round(progressOf(route))}%</b>{isAr ? "مكتمل" : "complete"}</span><div role="progressbar" aria-label={isAr ? "نسبة إنجاز المسار" : "Route completion"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progressOf(route))}><i style={{ width: `${Math.min(100, progressOf(route))}%`, background: route.color }} /></div><small>{fmt(route.completedKm)} / {fmt(route.plannedKm)} {distanceUnit(locale)}</small></div> : <p className="executive-detail-unavailable">{unavailable}</p>}<dl><Detail label={isAr ? "المنطقة" : "Region"} value={isAr ? "برنامج أبوظبي" : "Abu Dhabi programme"} /><Detail label={isAr ? "الحزمة" : "Package"} value={routePackageLabel(route, locale)} /><Detail label={isAr ? "نطاق أغسطس 2026" : "Aug 2026 scope"} value={route.currentProgramme ? `${fmt(route.plannedKm)} ${distanceUnit(locale)}` : unavailable} /><Detail label={isAr ? "المتبقي" : "Remaining"} value={route.currentProgramme ? `${fmt(route.remainingKm)} ${distanceUnit(locale)}` : unavailable} /><Detail label={isAr ? "قيد التنفيذ" : "Work in progress"} value={route.currentProgramme ? `${fmt(route.workInProgressKm)} ${distanceUnit(locale)}` : unavailable} /><Detail label={isAr ? "حالة الهندسة" : "Geometry match"} value={isAr ? ({ Matched: "متطابقة", "Partially matched": "مطابقة جزئياً", Unmatched: "غير متطابقة", "Requires validation": "تتطلب التحقق" }[route.geometryMatchStatus]) : route.geometryMatchStatus} /><Detail label={isAr ? "التوقع · مرجع ديسمبر 2025" : "Forecast · Dec 2025 reference"} value={formatForecast(route.forecast, locale)} /><Detail label={isAr ? "المقاول · مرجع ديسمبر 2025" : "Contractor · Dec 2025 reference"} value={routeContractorLabel(route, locale)} wide /><Detail label={isAr ? "حالة التنفيذ · أغسطس 2026" : "Delivery status · Aug 2026"} value={route.currentProgramme ? statusText[locale][route.status] : unavailable} /><Detail label={isAr ? "سرعة التصميم" : "Design speed"} value={routeDesignSpeedLabel(route, locale)} /><Detail label={isAr ? "مصدر الهندسة" : "Geometry source"} value={geometrySourceLabel(route, locale)} wide /></dl>{route.structures ? <p className="executive-detail-note"><Layers3 />{routeStructuresLabel(route, locale)}</p> : null}{route.validationNote ? <p className="executive-detail-note is-warning"><Info />{validationNoteLabel(route, locale)}</p> : null}{route.historicalScopes?.length ? <p className="executive-detail-note"><CalendarClock />{isAr ? "قيم تاريخية:" : "Historical scope references:"} {route.historicalScopes.map((item) => `${fmt(item.valueKm)} ${distanceUnit(locale)} (${item.sourceDate})`).join(" · ")}</p> : null}</section>;
   }
   const p = selected.feature.properties;
   const missing = isAr ? "غير مسجل في المخزون البلدي" : "Not recorded in municipal inventory";
   return <section className="executive-selected-detail">{back}<header><span style={{ background: regionColors[p.municipality] }} /><div><small>{isAr ? "أصل مكاني بلدي" : "MUNICIPAL GIS TRACK"}</small><h3>{inventoryFeatureLabel(selected.feature, locale)}</h3></div></header><dl><Detail label={isAr ? "المنطقة" : "Region"} value={regionLabel(p.municipality, locale)} /><Detail label={isAr ? "الفئة" : "Class"} value={inventoryClassLabel(p.featureClass, locale)} /><Detail label={isAr ? "الطول" : "Length"} value={`${fmt(p.lengthM / 1000, 2)} ${distanceUnit(locale)}`} /><Detail label={isAr ? "العرض" : "Width"} value={p.widthM == null ? missing : `${fmt(p.widthM, 2)} ${metreUnit(locale)}`} /><Detail label={isAr ? "الحالة" : "Condition"} value={p.condition ? inventoryValueLabel(p.condition, locale) : missing} /><Detail label={isAr ? "المادة" : "Material"} value={p.material ? inventoryValueLabel(p.material, locale) : missing} /><Detail label={isAr ? "الاتجاه" : "Direction"} value={p.direction ? inventoryValueLabel(p.direction, locale) : missing} /><Detail label={isAr ? "الإنارة" : "Lighting"} value={p.lighting ? inventoryValueLabel(p.lighting, locale) : missing} /><Detail label={isAr ? "التظليل" : "Shading"} value={p.shading ? inventoryValueLabel(p.shading, locale) : missing} /><Detail label={isAr ? "مواقف الدراجات" : "Bike spaces"} value={p.bikeSpaces == null ? missing : String(p.bikeSpaces)} /><Detail label={isAr ? "التقدم / التوقع" : "Progress / forecast"} value={missing} wide /><Detail label={isAr ? "المقاول" : "Contractor"} value={missing} wide /></dl></section>;
 }
 
+function geometrySourceLabel(route: NetworkRoute, locale: "en" | "ar") {
+  if (locale === "en") return route.geometrySource;
+  if (route.geometrySource.includes("As-Built KMZ")) return "ملف التنفيذ الفعلي للحزم 1–4 بصيغة كيه إم زد — مطابقة مجمعة";
+  if (route.geometrySource.includes("Progress Layout")) return "مخطط التقدم — أغسطس 2026 — محاذاة عامة";
+  return "محاذاة تصورية من وثيقة أساس التصميم لعام 2022";
+}
+
+function validationNoteLabel(route: NetworkRoute, locale: "en" | "ar") {
+  if (locale === "en") return route.validationNote ?? "";
+  if (route.id === "track-1-p12") return "يستخدم ملف التنفيذ الفعلي أسماء عناصر عامة ولا يحدد فصل الحزمتين 1 و2.";
+  if (route.id === "track-1-p34") return "يستخدم ملف التنفيذ الفعلي أسماء عناصر عامة ولا يحدد فصل الحزمتين 3 و4.";
+  if (route.id === "track-2-b") return "يعرض المصدر 26.1 كم نطاقاً و1 كم منجزاً وصفر قيد التنفيذ ونسبة 0٪؛ وهذه القيم لا تتطابق حسابياً.";
+  if (route.id === "hsct") return "المسار غير مدرج في مخطط أغسطس 2026؛ وتختلف المراجع التاريخية بين 47 كم في 2022 و52 كم في ديسمبر 2025.";
+  return route.validationNote ?? "";
+}
+
 function Detail({ label, value, wide = false }: { label: string; value: string; wide?: boolean }) {
   return <div className={wide ? "is-wide" : ""}><dt>{label}</dt><dd>{value}</dd></div>;
 }
 
-function ProgrammeProgress({ routes, locale }: { routes: NetworkRoute[]; locale: "en" | "ar" }) {
+function ProgrammeProgress({ routes, locale, scopeLabel, disconnected, onSelectRoute }: { routes: NetworkRoute[]; locale: "en" | "ar"; scopeLabel: string; disconnected: boolean; onSelectRoute: (route: NetworkRoute) => void }) {
   const isAr = locale === "ar";
-  return <section className="executive-support-card executive-progress-card"><header><div><p>{isAr ? "تقدم البرنامج" : "PROGRAMME PROGRESS"}</p><h2>{isAr ? "التنفيذ حسب المسار والحزمة" : "Delivery by route / package"}</h2></div><Route /></header><div className="executive-progress-list">{routes.length ? routes.map((route) => <article key={route.id}><span><strong>{routeLabel(route, locale)}</strong><small>{routeContractorLabel(route, locale)} · {formatForecast(route.forecast, locale)}</small></span><div><i style={{ width: `${Math.min(100, progressOf(route))}%`, background: route.color }} /></div><b>{fmt(route.completedKm)} / {fmt(route.plannedKm)} {distanceUnit(locale)}</b><em>{Math.round(progressOf(route))}%</em></article>) : <EmptyState locale={locale} />}</div></section>;
+  const currentRoutes = routes.filter((route) => route.currentProgramme);
+  const sourceGapRoute = routes.find((route) => route.currentSourceGap);
+  return <section className="executive-support-card executive-progress-card" data-programme-route-count={currentRoutes.length} data-current-source-gap={sourceGapRoute ? "true" : "false"}><header><div><p>{isAr ? "تقدم البرنامج · أغسطس 2026" : "PROGRAMME PROGRESS · AUG 2026"}</p><h2>{isAr ? "المنجز والمتبقي حسب المسار" : "Delivered & remaining by route"}</h2><small className="executive-section-scope">{scopeLabel}</small></div><Route /></header>{disconnected ? <RelationshipNote locale={locale} domain="programme" /> : null}<div className="executive-progress-list">{currentRoutes.length ? currentRoutes.map((route) => <button type="button" key={route.id} onClick={() => onSelectRoute(route)}><span><strong>{routeLabel(route, locale)}</strong><small>{routePackageLabel(route, locale)}</small></span><div role="progressbar" aria-label={`${routeLabel(route, locale)} · ${Math.round(route.progressPct)}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(route.progressPct)}><i style={{ width: `${Math.min(100, route.progressPct)}%`, background: route.color }} /></div><b>{fmt(route.completedKm)} {distanceUnit(locale)} · {fmt(route.remainingKm)} {isAr ? "متبقي" : "remaining"}</b><em>{Math.round(route.progressPct)}%</em></button>) : sourceGapRoute ? <div className="executive-progress-source-gap"><Info /><span><strong>{isAr ? "HSCT محفوظ ضمن هيكل البرنامج" : "HSCT remains in the programme structure"}</strong><small>{isAr ? "لم يرد التقدم الحالي في مصدر 26 أغسطس 2026. يلزم تحديث المصدر." : "Current progress is not reported in the 26 August 2026 source. A source update is required."}</small></span></div> : <EmptyState locale={locale} />}</div><p className="executive-card-footnote">{sourceGapRoute && !currentRoutes.length ? (isAr ? "غياب البيانات الحالية لا يعني إلغاء المسار أو حذفه." : "Absence of current data does not mean the route is cancelled or removed.") : (isAr ? "تُعرض قيم صفوف المسارات كما وردت؛ ولا تُستخدم لإعادة حساب الإجمالي الرئيسي." : "Route-table values are shown as reported and are not used to overwrite the programme headline.")}</p></section>;
 }
 
-function BudgetView({ contracts: visibleContracts, locale }: { contracts: typeof contracts[number][]; locale: "en" | "ar" }) {
+function BudgetView({ contracts: visibleContracts, locale, mode, scopeLabel, ignoredFilters, onSelectContract }: { contracts: typeof contracts[number][]; locale: "en" | "ar"; mode: "programme-wide" | "mapped-subset" | "unsupported-region" | "current-source-gap"; scopeLabel: string; ignoredFilters: boolean; onSelectContract: (routeIds: readonly string[]) => void }) {
   const isAr = locale === "ar";
   const max = Math.max(1, ...visibleContracts.map((item) => item.valueM ?? 0));
-  return <section className="executive-support-card executive-budget-card"><header><div><p>{isAr ? "الميزانية" : "EXECUTIVE BUDGET"}</p><h2>{isAr ? "الاحتياج والتمويل" : "Requirement & funding"}</h2></div><Banknote /></header><div className="executive-budget-summary"><div><small>{isAr ? "المعتمد" : "Approved"}</small><strong>{budgetBillions(fmt(programme.approvedBudgetBn), locale)}</strong></div><div><small>{isAr ? "المطلوب" : "Required"}</small><strong>{budgetBillions(fmt(programme.neededBudgetBn), locale)}</strong></div><div className="is-gap"><small>{isAr ? "الفجوة" : "Funding gap"}</small><strong>{budgetBillions(fmt(programme.neededBudgetBn - programme.approvedBudgetBn), locale)}</strong></div></div><div className="executive-funding-bar"><i style={{ width: `${(programme.approvedBudgetBn / programme.neededBudgetBn) * 100}%` }} /><span>{fmt((programme.approvedBudgetBn / programme.neededBudgetBn) * 100)}% {isAr ? "ممولة" : "funded"}</span></div><div className="executive-contract-bars">{visibleContracts.length ? visibleContracts.map((contract) => <div key={contract.id}><span><strong>{isAr ? contract.nameAr : contract.name}</strong><small>{"note" in contract ? (isAr ? contract.noteAr : contract.note) : null}</small></span><div><i style={{ width: `${contract.valueM == null ? 4 : (contract.valueM / max) * 100}%` }} /></div><b>{isAr ? contract.displayAr : contract.display}</b></div>) : <EmptyState locale={locale} />}</div><p className="executive-card-footnote">{isAr ? "القيم كما وردت في المصدر؛ لا يتم جمع النطاقات الأساسية والاختيارية وغير المخصصة." : "Source-listed values only; base, optional, and unallocated scopes are not summed."}</p></section>;
+  const relationshipText = mode === "current-source-gap"
+    ? (isAr ? "لا توجد قيمة ميزانية حالية لمسار HSCT في مصدر 26 أغسطس 2026، ولا يتم استنتاج قيمة من إجماليات البرنامج." : "No current HSCT budget value is reported in the 26 August 2026 source, and no value is inferred from programme totals.")
+    : mode === "mapped-subset"
+    ? (isAr ? `تُعرض قيم العقود المرتبطة بالمحدد فقط. إجماليات التمويل مرجع على مستوى البرنامج ولا تُوزع على المسارات.${ignoredFilters ? " المرشحات الأخرى النشطة لا تغيّر الميزانية التاريخية." : ""}` : `Showing only source-mapped contracts for this selection. Funding totals remain programme-wide and are not allocated to routes.${ignoredFilters ? " Other active filters do not alter historical budget values." : ""}`)
+    : mode === "unsupported-region"
+      ? (isAr ? "لا توجد علاقة ميزانية موثوقة لهذه المنطقة؛ تبقى إجماليات البرنامج مرجعاً غير مفلتر." : "No reliable budget relationship exists for this region; programme totals remain an unfiltered reference.")
+      : ignoredFilters
+        ? (isAr ? "تبقى الميزانية على مستوى البرنامج؛ لا توجد علاقة موثوقة بين مرشحات التنفيذ أو خصائص المخزون النشطة وقيم الميزانية التاريخية." : "Budget remains programme-wide; active delivery or inventory filters have no reliable relationship to the historical budget values.")
+        : (isAr ? "إجماليات على مستوى برنامج أبوظبي." : "Abu Dhabi programme-wide totals.");
+  if (mode === "current-source-gap") return <section className="executive-support-card executive-budget-card" data-budget-mode={mode} data-budget-contract-count="0"><header><div><p>{isAr ? "توفر الميزانية الحالية" : "CURRENT BUDGET AVAILABILITY"}</p><h2>{isAr ? "HSCT · تحديث المصدر مطلوب" : "HSCT · source update required"}</h2><small className="executive-section-scope">{scopeLabel}</small></div><Banknote /></header><p className="executive-relationship-note is-current-source-gap">{relationshipText}</p><div className="executive-budget-gap-state"><Info /><span><strong>{isAr ? "غير مدرج في أحدث مصدر" : "Not reported in latest source"}</strong><small>{isAr ? "لم يتم عرض أي تقدم أو توقع أو ميزانية حالية لمسار HSCT." : "No current HSCT progress, forecast, or budget is displayed."}</small></span></div></section>;
+  return <section className="executive-support-card executive-budget-card" data-budget-mode={mode} data-budget-contract-count={visibleContracts.length}><header><div><p>{isAr ? "الميزانية · مرجع ديسمبر 2025" : "EXECUTIVE BUDGET · DEC 2025 REFERENCE"}</p><h2>{isAr ? "الاحتياج والتمويل" : "Requirement & funding"}</h2><small className="executive-section-scope">{scopeLabel}</small></div><Banknote /></header><p className={`executive-relationship-note is-${mode}`}>{relationshipText}</p><div className="executive-budget-summary"><div><small>{isAr ? "المعتمد · البرنامج" : "Approved · programme"}</small><strong>{budgetBillions(fmt(programme.approvedBudgetBn), locale)}</strong></div><div><small>{isAr ? "المطلوب · البرنامج" : "Required · programme"}</small><strong>{budgetBillions(fmt(programme.neededBudgetBn), locale)}</strong></div><div className="is-gap"><small>{isAr ? "الفجوة · البرنامج" : "Funding gap · programme"}</small><strong>{budgetBillions(fmt(programme.neededBudgetBn - programme.approvedBudgetBn), locale)}</strong></div></div><div className="executive-funding-bar" role="progressbar" aria-label={isAr ? "نسبة التمويل المعتمد" : "Approved funding percentage"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((programme.approvedBudgetBn / programme.neededBudgetBn) * 100)}><i style={{ width: `${(programme.approvedBudgetBn / programme.neededBudgetBn) * 100}%` }} /><span>{fmt((programme.approvedBudgetBn / programme.neededBudgetBn) * 100)}% {isAr ? "ممولة" : "funded"}</span></div><div className="executive-contract-bars">{mode !== "unsupported-region" && visibleContracts.length ? visibleContracts.map((contract) => <button type="button" key={contract.id} onClick={() => onSelectContract(contract.routeIds)} aria-label={`${isAr ? "اعرض على الخريطة" : "Show on map"}: ${isAr ? contract.nameAr : contract.name}`}><span><strong>{isAr ? contract.nameAr : contract.name}</strong><small>{"note" in contract ? (isAr ? contract.noteAr : contract.note) : contract.id === "c-34" && mode === "mapped-subset" ? (isAr ? "عقد مشترك للمسارين 3 و4؛ لم يتم افتراض توزيع داخلي." : "Shared Track 3 & 4 contract; no internal allocation assumed.") : null}</small></span><div><i style={{ width: `${contract.valueM == null ? 4 : (contract.valueM / max) * 100}%` }} /></div><b>{isAr ? contract.displayAr : contract.display}</b><MapPinned aria-hidden="true" /></button>) : mode === "programme-wide" ? <EmptyState locale={locale} /> : null}</div><p className="executive-card-footnote">{isAr ? "اختر عقداً لتصفية المسارات والخريطة. تبقى قيم الميزانية مرجعاً تاريخياً منفصلاً." : "Select a contract to filter the routes and map. Budget values remain a separate historical reference."}</p></section>;
 }
 
-function CharacteristicsView({ features, locale, region }: { features: InventoryFeature[]; locale: "en" | "ar"; region: RegionCode }) {
+function CharacteristicsView({ features, locale, scopeLabel, programmeFiltersUnlinked, activeCondition, onConditionSelect }: { features: InventoryFeature[]; locale: "en" | "ar"; scopeLabel: string; programmeFiltersUnlinked: boolean; activeCondition: string; onConditionSelect: (value: string) => void }) {
   const isAr = locale === "ar";
   const lengthKm = features.reduce((sum, feature) => sum + feature.properties.lengthM, 0) / 1000;
+  const widths = features.map((feature) => feature.properties.widthM).filter((value): value is number => value != null);
+  const averageWidth = widths.length ? widths.reduce((sum, value) => sum + value, 0) / widths.length : null;
   const condition = distribution(features.map((feature) => feature.properties.condition), locale);
-  const material = distribution(features.map((feature) => feature.properties.material), locale);
-  return <section className="executive-support-card executive-characteristics-card"><header><div><p>{isAr ? "خصائص الشبكة" : "NETWORK CHARACTERISTICS"}</p><h2>{regionLabel(region, locale)}</h2></div><Bike /></header><div className="executive-characteristic-total"><strong>{fmt(lengthKm)} {distanceUnit(locale)}</strong><span>{isAr ? "طول مسجل ضمن مرشح الخريطة" : "source-recorded length in the current map filter"}</span></div><CompactDistribution title={isAr ? "الحالة" : "Condition"} values={condition} empty={isAr ? "غير مسجل" : "Not recorded"} /><CompactDistribution title={isAr ? "المادة" : "Material"} values={material} empty={isAr ? "غير مسجل" : "Not recorded"} /><p className="executive-card-footnote">{isAr ? "تظهر خصائص المسار هنا بدلاً من صفحة تحليل مستقلة." : "Track characteristics are integrated here instead of a separate analysis page."}</p></section>;
+  return <section className="executive-support-card executive-characteristics-card" data-inventory-feature-count={features.length}><header><div><p>{isAr ? "خصائص الشبكة" : "NETWORK CHARACTERISTICS"}</p><h2>{scopeLabel}</h2><small className="executive-section-scope">{isAr ? "المخزون البلدي المفلتر" : "Filtered municipal inventory"}</small></div><Bike /></header>{programmeFiltersUnlinked ? <RelationshipNote locale={locale} domain="inventory" /> : null}<div className="executive-characteristic-metrics"><div><strong>{fmt(lengthKm)} {distanceUnit(locale)}</strong><span>{isAr ? "الطول المسجل" : "Recorded length"}</span></div><div><strong>{averageWidth == null ? "—" : `${fmt(averageWidth, 2)} ${metreUnit(locale)}`}</strong><span>{isAr ? "متوسط العرض المسجل" : "Average recorded width"}</span></div></div><CompactDistribution title={isAr ? "الحالة" : "Condition"} values={condition} empty={isAr ? "غير مسجل" : "Not recorded"} activeValue={activeCondition} onSelect={onConditionSelect} locale={locale} /><p className="executive-card-footnote">{isAr ? "اختر شريط الحالة لتصفية الخريطة والمخزون. تبقى خصائص المادة والإنارة متاحة في تفاصيل الأصل عند تسجيلها." : "Select a condition bar to filter the map and inventory. Material and lighting remain available in asset details when recorded."}</p></section>;
 }
 
 function distribution(values: Array<string | null>, locale: "en" | "ar") {
   const counts = new Map<string, number>();
-  values.forEach((value) => { if (value) { const label = inventoryValueLabel(value, locale); counts.set(label, (counts.get(label) ?? 0) + 1); } });
-  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+  values.forEach((value) => { if (value) counts.set(value, (counts.get(value) ?? 0) + 1); });
+  return [...counts.entries()].map(([raw, count]) => [raw, inventoryValueLabel(raw, locale), count] as const).sort((a, b) => b[2] - a[2]).slice(0, 4);
 }
 
-function CompactDistribution({ title, values, empty }: { title: string; values: Array<[string, number]>; empty: string }) {
-  const total = values.reduce((sum, [, value]) => sum + value, 0);
-  return <div className="executive-compact-distribution"><h3>{title}</h3>{values.length ? values.map(([label, value]) => <div key={label}><span>{label}</span><i><b style={{ width: `${(value / total) * 100}%` }} /></i><em>{Math.round((value / total) * 100)}%</em></div>) : <p>{empty}</p>}</div>;
+function CompactDistribution({ title, values, empty, activeValue, onSelect, locale }: { title: string; values: Array<readonly [string, string, number]>; empty: string; activeValue: string; onSelect: (value: string) => void; locale: "en" | "ar" }) {
+  const total = values.reduce((sum, [, , value]) => sum + value, 0);
+  return <div className="executive-compact-distribution"><h3>{title}</h3>{values.length ? values.map(([raw, label, value]) => <button type="button" key={raw} className={activeValue === raw ? "is-selected" : ""} aria-pressed={activeValue === raw} aria-label={`${locale === "ar" ? "تصفية حسب" : "Filter by"} ${title}: ${label}`} onClick={() => onSelect(activeValue === raw ? "all" : raw)}><span>{label}</span><i><b style={{ width: `${(value / total) * 100}%` }} /></i><em>{Math.round((value / total) * 100)}%</em></button>) : <p>{empty}</p>}</div>;
 }
 
-function ExecutiveInsights({ routes, inventoryFeatures, locale }: { routes: NetworkRoute[]; inventoryFeatures: InventoryFeature[]; locale: "en" | "ar" }) {
+function RelationshipNote({ locale, domain }: { locale: "en" | "ar"; domain: "programme" | "inventory" }) {
   const isAr = locale === "ar";
-  const leader = [...routes].sort((a, b) => progressOf(b) - progressOf(a))[0];
-  const largestRemaining = [...routes].sort((a, b) => (b.plannedKm - b.completedKm) - (a.plannedKm - a.completedKm))[0];
-  const mappedKm = inventoryFeatures.reduce((sum, feature) => sum + feature.properties.lengthM, 0) / 1000;
-  return <section className="executive-insights"><header><div><p>{isAr ? "رؤية تنفيذية" : "EXECUTIVE INSIGHTS"}</p><h2>{isAr ? "ما تقوله البيانات الحالية" : "What the current data says"}</h2></div><Target /></header><div>{leader ? <article><CheckCircle2 /><span><strong>{isAr ? "أقوى إشارة تنفيذ" : "Delivery signal"}</strong><p>{routeLabel(leader, locale)} {isAr ? "هو الأكثر تقدماً ضمن المرشح بنسبة" : "is the most advanced filtered route at"} {fmt(progressOf(leader))}%.</p></span></article> : null}{largestRemaining ? <article><CalendarClock /><span><strong>{isAr ? "أكبر نطاق متبقٍ" : "Largest remaining scope"}</strong><p>{routeLabel(largestRemaining, locale)} {isAr ? "يتبقى له" : "has"} {fmt(largestRemaining.plannedKm - largestRemaining.completedKm)} {distanceUnit(locale)} {isAr ? "ومتوقع في" : "remaining, forecast"} {formatForecast(largestRemaining.forecast, locale)}.</p></span></article> : null}<article><CircleDollarSign /><span><strong>{isAr ? "قرار التمويل" : "Funding decision"}</strong><p>{isAr ? "الفجوة على مستوى البرنامج" : "The programme-wide funding gap is"} {budgetBillions(fmt(programme.neededBudgetBn - programme.approvedBudgetBn), locale)}{isAr ? "؛" : ";"} {fmt((programme.approvedBudgetBn / programme.neededBudgetBn) * 100)}% {isAr ? "من الاحتياج ممول." : "of the stated requirement is funded."}</p></span></article><article><MapPinned /><span><strong>{isAr ? "سياق الخريطة" : "Mapped context"}</strong><p>{fmt(mappedKm)} {distanceUnit(locale)} {isAr ? "من الطول المسجل بالمصدر يطابق مرشحات المنطقة والفئة والخصائص الحالية." : "of source-recorded geometry matches the active region, layer, and characteristic filters."}</p></span></article></div></section>;
+  const text = domain === "programme"
+    ? (isAr ? "مرشحات خصائص المخزون لا تغيّر قيم البرنامج لعدم وجود رابط موثوق على مستوى الأصل." : "Inventory-characteristic filters do not change programme values because no reliable feature-level link exists.")
+    : (isAr ? "مرشحات المسار والحزمة والحالة لا تغيّر خصائص المخزون البلدي لعدم وجود رابط موثوق." : "Route, package, and delivery filters do not change municipal characteristics because no reliable link exists.");
+  return <p className="executive-relationship-note is-unlinked"><Info />{text}</p>;
+}
+
+function ExecutiveAttention({ routes, locale, asBuiltSummary, scopeLabel, showReconciliation, onSelectRoute }: { routes: NetworkRoute[]; locale: "en" | "ar"; asBuiltSummary: AsBuiltSummary | null; scopeLabel: string; showReconciliation: boolean; onSelectRoute: (route: NetworkRoute) => void }) {
+  const isAr = locale === "ar";
+  const visibleCurrent = routes.filter((route) => route.currentProgramme);
+  const largestRemaining = [...visibleCurrent].sort((a, b) => b.remainingKm - a.remainingKm)[0];
+  const needsValidation = visibleCurrent.find((route) => route.geometryMatchStatus === "Requires validation");
+  const hsctVisible = routes.some((route) => route.id === "hsct");
+  const packages14Visible = routes.some((route) => route.id === "track-1-p12" || route.id === "track-1-p34");
+  return <section className="executive-insights" data-attention-route-count={visibleCurrent.length}><header><div><p>{isAr ? "نقاط الاهتمام التنفيذي" : "EXECUTIVE ATTENTION"}</p><h2>{isAr ? "قرارات وحدود مدعومة بالمصدر" : "Source-backed decisions & constraints"}</h2><small className="executive-section-scope">{scopeLabel}</small></div><Target /></header><div>{largestRemaining ? <button type="button" className="executive-insight-action" onClick={() => onSelectRoute(largestRemaining)}><Route /><span><strong>{isAr ? "أكبر نطاق متبقٍ" : "Largest remaining scope"}</strong><p>{routeLabel(largestRemaining, locale)} {isAr ? "يتبقى له" : "has"} {fmt(largestRemaining.remainingKm)} {distanceUnit(locale)} {isAr ? "وفق صف المسار في أغسطس 2026." : "in the August 2026 route table."}</p></span><MapPinned aria-hidden="true" /></button> : <article><Info /><span><strong>{isAr ? "لا يوجد نطاق برنامج مرتبط" : "No linked programme scope"}</strong><p>{isAr ? "لا يحتوي المصدر الحالي على علاقة برنامج لهذه المجموعة من المرشحات." : "The current source contains no programme relationship for this filter combination."}</p></span></article>}{showReconciliation ? <article><Info /><span><strong>{isAr ? "حد المطابقة الحسابية" : "Reconciliation boundary"}</strong><p>{isAr ? "إجماليات صفوف المسارات تزيد عن العنوان الرئيسي بمقدار 20.6 كم للنطاق و17.6 كم للمنجز؛ لذلك يبقى المستويان منفصلين." : "Route rows exceed the programme headline by 20.6 km of scope and 17.6 km completed; both grains remain separate."}</p></span></article> : null}{needsValidation ? <button type="button" className="executive-insight-action" onClick={() => onSelectRoute(needsValidation)}><ShieldCheck /><span><strong>{isAr ? "يتطلب التحقق" : "Requires validation"}</strong><p>{isAr ? "المسار 2ب يعرض 26.1 كم نطاقاً و1 كم منجزاً وصفر قيد التنفيذ ونسبة 0٪ في المصدر." : "Track 2B reports 26.1 km scope, 1 km completed, zero WIP, and 0% in the source."}</p></span><MapPinned aria-hidden="true" /></button> : null}{packages14Visible ? <article><MapPinned /><span><strong>{isAr ? "حد مطابقة الهندسة" : "Geometry matching boundary"}</strong><p>{asBuiltSummary ? (isAr ? "ملف التنفيذ الفعلي يستخدم أسماء عناصر عامة؛ يمكن إسناده للحزم 1–4 مجتمعة فقط، وليس لكل حزمة." : "The as-built KMZ uses generic object names; it is matched to Packages 1–4 only in aggregate, not to individual packages.") : (isAr ? "جارٍ تحميل تحقق هندسة التنفيذ الفعلي." : "As-built geometry validation is loading.")}</p></span></article> : null}{hsctVisible ? <button type="button" className="executive-insight-action" onClick={() => onSelectRoute(routes.find((route) => route.id === "hsct")!)}><CalendarClock /><span><strong>{isAr ? "مسار عالي السرعة" : "High-speed cycle track"}</strong><p>{isAr ? "غير مدرج في مصدر أغسطس 2026؛ المرجعان التاريخيان يعرضان 47 كم في 2022 و52 كم في ديسمبر 2025." : "Not listed in August 2026; historical references state 47 km in 2022 and 52 km in December 2025."}</p></span><MapPinned aria-hidden="true" /></button> : null}</div></section>;
 }
 
 function EmptyState({ locale }: { locale: "en" | "ar" }) {
   return <div className="executive-inline-empty"><Search /><span>{locale === "ar" ? "لا توجد بيانات مطابقة للمرشحات الحالية." : "No source records match the current filters."}</span></div>;
 }
 
-function MethodologyContent({ summary, locale }: { summary: InventorySummary | null; locale: "en" | "ar" }) {
+function MethodologyContent({ summary, locale, asBuiltSummary = null }: { summary: InventorySummary | null; locale: "en" | "ar"; asBuiltSummary?: AsBuiltSummary | null }) {
   const isAr = locale === "ar";
-  return <div className="executive-methodology-content"><div><strong>{isAr ? "مصدر البرنامج" : "Programme source"}</strong><p>{isAr ? "تقرير حالة تقدم مشروع مسارات الدراجات · ديسمبر 2025." : summary?.methodology.programmeScope ?? "Cycling project Progress Status report · December 2025."}</p></div><div><strong>{isAr ? "مصدر المخزون المكاني" : "GIS inventory source"}</strong><p>{isAr ? "هندسة بلدية مؤهلة ومحوّلة إلى النظام الجغرافي العالمي للعرض على الخريطة." : summary?.methodology.inventory ?? "Qualified municipal geometry transformed to WGS84 for web-map rendering."}</p></div><div><strong>{isAr ? "حد المقارنة" : "Comparison boundary"}</strong><p>{isAr ? "لا يتم افتراض تطابق حزم البرنامج مع سجلات المخزون البلدي." : summary?.methodology.comparability ?? "Programme packages are not assumed to match municipal inventory records."}</p></div><div><strong>{isAr ? "طريقة التفاعل" : "Interaction rule"}</strong><p>{isAr ? "مرشحات البرنامج تحدث مؤشرات التنفيذ والميزانية وطبقات المسارات؛ ومرشحات المخزون تحدث الهندسة والقائمة والخصائص." : "Programme filters update delivery KPIs, budget analytics, and route overlays; inventory filters update municipal geometry, list results, and characteristics."}</p></div></div>;
+  return <div className="executive-methodology-content"><div><strong>{isAr ? "حالة البرنامج الحالية" : "Current programme status"}</strong><p>{isAr ? "مخطط التقدم المضغوط · 26 أغسطس 2026. العنوان الرئيسي هو 338.7 كم نطاقاً، 232.7 كم منجزاً، 106 كم متبقياً، و68.7٪." : "Progress Layout · 26 August 2026. Headline: 338.7 km scope, 232.7 km completed, 106 km remaining, 68.7%."}</p></div><div><strong>{isAr ? "هندسة التنفيذ الفعلي" : "As-built geometry"}</strong><p>{isAr ? "ملف الحزم 1–4 بصيغة كيه إم زد، بإحداثيات النظام العالمي مباشرة. المطابقة جزئية على مستوى الحزم مجتمعة." : `Packages 1–4 KMZ, already in WGS84 coordinates. ${asBuiltSummary?.geometryMatchStatus ?? "Partially matched"} at aggregate package level.`}</p></div><div><strong>{isAr ? "المخزون البلدي" : "Municipal inventory"}</strong><p>{isAr ? "هندسة بلديات أبوظبي والعين والظفرة مؤهلة ومحوّلة إلى النظام الجغرافي العالمي للعرض على الخريطة." : summary?.methodology.inventory ?? "Qualified ADM, AAM, and DRM geometry transformed to WGS84 for web-map rendering."}</p></div><div><strong>{isAr ? "مراجع تاريخية" : "Historical references"}</strong><p>{isAr ? "قيم الميزانية والعقود والمقاولين والتوقعات من تقرير ديسمبر 2025؛ ووثيقة أساس التصميم لعام 2022 مرجع تاريخي فقط." : "Budget, contract, contractor, and forecast values are from December 2025; the 2022 BOD is historical context only."}</p></div><div><strong>{isAr ? "حد المقارنة" : "Comparison boundary"}</strong><p>{isAr ? "لا تُجمع صفوف المسارات لإجبارها على مساواة العنوان الرئيسي، ولا يُفترض تطابق مخزون البلديات مع نطاق البرنامج." : "Route rows are not forced to equal the headline, and municipal inventory is not assumed to match programme scope."}</p></div><div><strong>{isAr ? "قاعدة التفاعل" : "Interaction rule"}</strong><p>{isAr ? "مرشحات البرنامج تحدث مؤشرات التنفيذ والمسارات؛ ومرشحات الخصائص تحدث المخزون البلدي. تستجيب الميزانية للمنطقة والمسار والحزمة فقط عند وجود مطابقة مصدرية، وتبقى بقية المجالات مستقلة." : "Programme filters update KPIs and route layers; characteristic filters update municipal inventory. Budget responds only to source-mapped region, route, and package relationships; all other domains stay independent."}</p></div></div>;
 }

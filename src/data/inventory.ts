@@ -33,6 +33,20 @@ export type InventoryProperties = {
 export type InventoryFeature = Feature<Geometry, InventoryProperties>;
 export type InventoryCollection = FeatureCollection<Geometry, InventoryProperties>;
 
+/**
+ * ADM includes generic polygon fragments named only "Cycling". They remain in
+ * the raw source file for auditability, but are not identifiable routes and
+ * should not appear in the executive map, filters, cards, or track explorers.
+ */
+export function isDecisionFacingInventoryFeature(feature: InventoryFeature) {
+  const genericName = feature.properties.name.trim().toLocaleLowerCase("en") === "cycling";
+  const polygon = feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon";
+  return !(feature.properties.municipality === "ADM"
+    && feature.properties.featureClass === "Cycle track"
+    && genericName
+    && polygon);
+}
+
 export type RegionSummary = {
   code: Exclude<RegionCode, "all">;
   name: string;

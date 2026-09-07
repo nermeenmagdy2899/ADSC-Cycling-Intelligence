@@ -1,0 +1,38 @@
+{
+  "source": "D:\\Alchemy\\ADSC\\AD-CYCLING-DASHBOARD'\\Package 1 ,2 ,3 &4 As- Built).kmz",
+  "sourceDate": "2026-08-26",
+  "sourceSha256": "dbb4bc030ff322bda3c9d2c7a5374eab855236680cbbf4652b9c3b5f2f75a3e8",
+  "sourceCrs": "EPSG:4326 (KML longitude/latitude)",
+  "outputCrs": "EPSG:4326",
+  "placemarkCount": 5777,
+  "outputFeatureCount": 5771,
+  "geometryRoles": {
+    "alignment": 2975,
+    "footprint": 2796
+  },
+  "sourceColours": {
+    "#000000": 1,
+    "#0000fe": 2877,
+    "#00fe00": 128,
+    "#00fefe": 892,
+    "#fe0000": 1852,
+    "#fefe00": 1,
+    "#fefefe": 26
+  },
+  "bounds": [
+    54.33171558,
+    24.40297765,
+    54.48471695,
+    24.49934189
+  ],
+  "genericObjectNameCount": 5764,
+  "invalidCoordinateCount": 0,
+  "invalidRingCount": 7,
+  "geometryMatchStatus": "Partially matched",
+  "matchScope": "Track 1 Packages 1-4 aggregate; individual package identity requires client reconciliation",
+  "validation": {
+    "coordinatesWithinWgs84": true,
+    "abuDhabiExtent": true,
+    "packageIdentityAvailable": false
+  }
+}

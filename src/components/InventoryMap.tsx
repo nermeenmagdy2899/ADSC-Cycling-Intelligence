@@ -21,6 +21,7 @@ import type { FilterSpecification, GeoJSONSource, Map as MapboxMap, StyleSpecifi
 import type { FeatureCollection, LineString, Position } from "geojson";
 import type { InventoryClass, InventoryCollection, InventoryFeature, RegionCode } from "../data/inventory";
 import { regionColors, regionLabel } from "../data/inventory";
+import type { AsBuiltCollection } from "../data/asbuilt";
 import type { NetworkRoute } from "../data/network";
 import { distanceUnit, inventoryClassLabel, inventoryFeatureLabel, routeLabel, statusText } from "../i18n";
 
@@ -32,9 +33,9 @@ type Props = {
   featureClass: InventoryClass;
   selectedId: string | null;
   condition?: string;
-  material?: string;
   programmeRoutes?: NetworkRoute[];
   mainRoutes?: NetworkRoute[];
+  asBuilt?: AsBuiltCollection | null;
   selectedProgrammeId?: string | null;
   onSelect: (feature: InventoryFeature | null) => void;
   onSelectProgramme?: (routeId: string | null) => void;
@@ -46,6 +47,7 @@ type ViewMode = "2d" | "2.5d" | "3d";
 
 const interactiveLayers = [
   "programme-route-line",
+  "programme-reference-line",
   "inventory-verified-polygon-fill",
   "inventory-other-polygon-fill",
   "inventory-unclassified-polygon-fill",
@@ -73,8 +75,9 @@ const verifiedFilter: FilterSpecification = ["==", ["get", "featureClass"], "Cyc
 const mobilityFilter: FilterSpecification = ["==", ["get", "featureClass"], "Active-mobility path"];
 const unclassifiedFilter: FilterSpecification = ["==", ["get", "featureClass"], "Unclassified track polygon"];
 const emptyInventoryData: InventoryCollection = { type: "FeatureCollection", features: [] };
-type ProgrammeRouteCollection = FeatureCollection<LineString, { id: string; name: string; label: string; color: string; status: string }>;
+type ProgrammeRouteCollection = FeatureCollection<LineString, { id: string; name: string; label: string; color: string; status: string; workInProgressKm: number; currentProgramme: boolean; currentSourceGap: boolean }>;
 const emptyProgrammeData: ProgrammeRouteCollection = { type: "FeatureCollection", features: [] };
+const emptyAsBuiltData: AsBuiltCollection = { type: "FeatureCollection", features: [] };
 
 function programmeCollection(routes: NetworkRoute[]): ProgrammeRouteCollection {
   return {
@@ -82,7 +85,7 @@ function programmeCollection(routes: NetworkRoute[]): ProgrammeRouteCollection {
     features: routes.map((route) => ({
       type: "Feature",
       id: route.id,
-      properties: { id: route.id, name: route.name, label: route.label, color: route.color, status: route.status },
+      properties: { id: route.id, name: route.name, label: route.label, color: route.color, status: route.status, workInProgressKm: route.workInProgressKm, currentProgramme: route.currentProgramme, currentSourceGap: Boolean(route.currentSourceGap) },
       geometry: { type: "LineString", coordinates: route.coordinates }
     }))
   };
@@ -96,22 +99,22 @@ function createStyle(): StyleSpecification {
     sources: {
       streets: raster([
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-      ], "Tiles © Esri"),
+      ], "© Esri"),
       "dark-streets": raster([
         "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-      ], "Tiles © Esri"),
+      ], "© Esri"),
       "dark-labels": raster([
         "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
-      ], "Labels © Esri"),
+      ], ""),
       osm: raster([
         "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
       ], "© OpenStreetMap contributors"),
       satellite: raster([
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-      ], "Tiles © Esri"),
+      ], "© Esri"),
       "satellite-labels": raster([
         "https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-      ], "Labels © Esri")
+      ], "")
     },
     layers: [
       { id: "background", type: "background", paint: { "background-color": "#e9eef4" } },
@@ -176,9 +179,9 @@ export function InventoryMap({
   featureClass,
   selectedId,
   condition = "all",
-  material = "all",
   programmeRoutes = [],
   mainRoutes = [],
+  asBuilt = null,
   selectedProgrammeId = null,
   onSelect,
   onSelectProgramme,
@@ -188,6 +191,7 @@ export function InventoryMap({
   const frameRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const programmeRoutesRef = useRef(programmeRoutes);
+  const asBuiltRef = useRef<AsBuiltCollection>(asBuilt ?? emptyAsBuiltData);
   const localeRef = useRef(locale);
   const dataRef = useRef(data);
   const onSelectRef = useRef(onSelect);
@@ -207,6 +211,10 @@ export function InventoryMap({
   const [basemap, setBasemap] = useState<Basemap>("streets");
   const [basemapFallback, setBasemapFallback] = useState(false);
   const [basemapIssue, setBasemapIssue] = useState(false);
+  const [scopeVisible, setScopeVisible] = useState(true);
+  const [referenceVisible, setReferenceVisible] = useState(true);
+  const [completedVisible, setCompletedVisible] = useState(true);
+  const [wipVisible, setWipVisible] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("2.5d");
   const [layersVisible, setLayersVisible] = useState(true);
   const [layerPanelOpen, setLayerPanelOpen] = useState(false);
@@ -217,6 +225,7 @@ export function InventoryMap({
   const [cameraCenter, setCameraCenter] = useState<[number, number]>([54.45, 24.35]);
 
   programmeRoutesRef.current = programmeRoutes;
+  asBuiltRef.current = asBuilt ?? emptyAsBuiltData;
   localeRef.current = locale;
   dataRef.current = data;
   onSelectRef.current = onSelect;
@@ -228,8 +237,7 @@ export function InventoryMap({
   const regionFiltered = useMemo(() => data.features.filter((feature) => (
     (region === "all" || feature.properties.municipality === region)
     && (condition === "all" || feature.properties.condition === condition)
-    && (material === "all" || feature.properties.material === material)
-  )), [condition, data.features, material, region]);
+  )), [condition, data.features, region]);
   const filtered = useMemo(() => regionFiltered.filter((feature) => (
     featureClass === "all" || feature.properties.featureClass === featureClass
   )), [featureClass, regionFiltered]);
@@ -309,11 +317,13 @@ export function InventoryMap({
     map.on("load", () => {
       map.addSource("cycling-polygons", { type: "geojson", data: emptyInventoryData, generateId: true });
       map.addSource("cycling-lines", { type: "geojson", data: emptyInventoryData, generateId: true });
+      map.addSource("asbuilt-packages", { type: "geojson", data: asBuiltRef.current, generateId: true });
       map.addSource("programme-routes", { type: "geojson", data: programmeCollection(programmeRoutesRef.current) });
       map.addLayer({
         id: "programme-route-glow",
         type: "line",
         source: "programme-routes",
+        filter: ["==", ["get", "currentProgramme"], true],
         paint: {
           "line-color": ["get", "color"],
           "line-width": ["interpolate", ["linear"], ["zoom"], 6, 5, 13, 8],
@@ -325,13 +335,84 @@ export function InventoryMap({
         id: "programme-route-line",
         type: "line",
         source: "programme-routes",
+        filter: ["==", ["get", "currentProgramme"], true],
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": ["get", "color"],
+          "line-color": "#d8e4ec",
           "line-width": ["interpolate", ["linear"], ["zoom"], 6, 2, 13, 3.8],
-          "line-opacity": 0.84,
+          "line-opacity": 0.72,
           "line-dasharray": [2.2, 1.4]
         }
+      });
+      map.addLayer({
+        id: "programme-reference-glow",
+        type: "line",
+        source: "programme-routes",
+        filter: ["==", ["get", "currentSourceGap"], true],
+        paint: {
+          "line-color": "#f7e2b0",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 6, 5, 13, 9],
+          "line-opacity": 0.18,
+          "line-blur": 4
+        }
+      });
+      map.addLayer({
+        id: "programme-reference-line",
+        type: "line",
+        source: "programme-routes",
+        filter: ["==", ["get", "currentSourceGap"], true],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "#f7e2b0",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 6, 2.4, 13, 4.2],
+          "line-opacity": 0.96,
+          "line-dasharray": [1.2, 1.6]
+        }
+      });
+      map.addLayer({
+        id: "programme-wip-glow",
+        type: "line",
+        source: "programme-routes",
+        filter: ["all", [">", ["get", "workInProgressKm"], 0], ["==", ["get", "currentProgramme"], true]],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#9fcf36", "line-width": ["interpolate", ["linear"], ["zoom"], 6, 6, 13, 10], "line-opacity": 0.16, "line-blur": 4 }
+      });
+      map.addLayer({
+        id: "programme-wip-line",
+        type: "line",
+        source: "programme-routes",
+        filter: ["all", [">", ["get", "workInProgressKm"], 0], ["==", ["get", "currentProgramme"], true]],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#9fcf36", "line-width": ["interpolate", ["linear"], ["zoom"], 6, 2.4, 13, 4.2], "line-opacity": 0.88, "line-dasharray": [1.2, 1.2] }
+      });
+      map.addLayer({
+        id: "asbuilt-footprint-fill",
+        type: "fill",
+        source: "asbuilt-packages",
+        filter: ["in", ["geometry-type"], ["literal", ["Polygon", "MultiPolygon"]]],
+        paint: { "fill-color": "#32d4bd", "fill-opacity": ["interpolate", ["linear"], ["zoom"], 7, 0.12, 14, 0.32] }
+      });
+      map.addLayer({
+        id: "asbuilt-footprint-outline",
+        type: "line",
+        source: "asbuilt-packages",
+        filter: ["in", ["geometry-type"], ["literal", ["Polygon", "MultiPolygon"]]],
+        paint: { "line-color": "#56e4cf", "line-width": ["interpolate", ["linear"], ["zoom"], 7, 0.7, 14, 2], "line-opacity": 0.72 }
+      });
+      map.addLayer({
+        id: "asbuilt-alignment-glow",
+        type: "line",
+        source: "asbuilt-packages",
+        filter: ["in", ["geometry-type"], ["literal", ["LineString", "MultiLineString"]]],
+        paint: { "line-color": "#32d4bd", "line-width": ["interpolate", ["linear"], ["zoom"], 7, 3, 14, 7], "line-opacity": 0.16, "line-blur": 3 }
+      });
+      map.addLayer({
+        id: "asbuilt-alignment-line",
+        type: "line",
+        source: "asbuilt-packages",
+        filter: ["in", ["geometry-type"], ["literal", ["LineString", "MultiLineString"]]],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: { "line-color": "#56e4cf", "line-width": ["interpolate", ["linear"], ["zoom"], 7, 0.9, 14, 2.2], "line-opacity": 0.82 }
       });
       map.addLayer({
         id: "programme-route-selected",
@@ -528,7 +609,9 @@ export function InventoryMap({
         const title = document.createElement("strong");
         title.textContent = routeLabel(route, activeLocale);
         const detail = document.createElement("span");
-        detail.textContent = `${route.completedKm.toFixed(1)} / ${route.plannedKm.toFixed(1)} ${distanceUnit(activeLocale)} · ${Math.round((route.completedKm / route.plannedKm) * 100)}%`;
+        detail.textContent = route.currentProgramme
+          ? `${route.completedKm.toFixed(1)} / ${route.plannedKm.toFixed(1)} ${distanceUnit(activeLocale)} · ${route.progressPct}%`
+          : (activeLocale === "ar" ? "محاذاة مرجعية من أساس التصميم 2022 · ليست هندسة تنفيذ فعلي حالية" : "2022 BOD reference alignment · not current As-Built geometry");
         node.append(title, detail);
         popupRef.current?.remove();
         popupRef.current = new mapboxgl.Popup({ offset: 12, closeButton: false }).setLngLat(event.lngLat).setDOMContent(node).addTo(map);
@@ -611,6 +694,15 @@ export function InventoryMap({
     const map = mapRef.current;
     if (!map || !loaded) return;
     return scheduleMapMutation(map, () => {
+      const source = map.getSource("asbuilt-packages") as GeoJSONSource | undefined;
+      source?.setData(asBuilt ?? emptyAsBuiltData);
+    });
+  }, [asBuilt, loaded]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loaded) return;
+    return scheduleMapMutation(map, () => {
       const filter: FilterSpecification = ["==", ["get", "id"], selectedId ?? ""];
       map.setFilter("inventory-selected-polygon", filter);
       map.setFilter("inventory-selected-line", filter);
@@ -685,11 +777,23 @@ export function InventoryMap({
       inventorySelectionLayerIds.forEach((id) => {
         if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", layersVisible && Boolean(selectedId) ? "visible" : "none");
       });
-      ["programme-route-glow", "programme-route-line", "programme-route-selected"].forEach((id) => {
-        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", programmeVisible ? "visible" : "none");
+      ["programme-route-glow", "programme-route-line"].forEach((id) => {
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", programmeVisible && scopeVisible ? "visible" : "none");
       });
+      ["programme-reference-glow", "programme-reference-line"].forEach((id) => {
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", programmeVisible && referenceVisible ? "visible" : "none");
+      });
+      ["programme-wip-glow", "programme-wip-line"].forEach((id) => {
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", programmeVisible && wipVisible ? "visible" : "none");
+      });
+      ["asbuilt-footprint-fill", "asbuilt-footprint-outline", "asbuilt-alignment-glow", "asbuilt-alignment-line"].forEach((id) => {
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", programmeVisible && completedVisible && !selectedId ? "visible" : "none");
+      });
+      const selectedProgramme = programmeRoutes.find((route) => route.id === selectedProgrammeId);
+      const selectedLayerVisible = programmeVisible && (!selectedProgramme?.currentSourceGap || referenceVisible);
+      if (map.getLayer("programme-route-selected")) map.setLayoutProperty("programme-route-selected", "visibility", selectedLayerVisible ? "visible" : "none");
     });
-  }, [layersVisible, loaded, programmeVisible, selectedId, selectedProgrammeId]);
+  }, [completedVisible, layersVisible, loaded, programmeRoutes, programmeVisible, referenceVisible, scopeVisible, selectedId, selectedProgrammeId, wipVisible]);
 
   const setMode = (mode: ViewMode) => {
     setViewMode(mode);
@@ -729,9 +833,13 @@ export function InventoryMap({
   };
 
   const labels = locale === "ar" ? {
-    streets: "الخريطة", satellite: "القمر الصناعي", layers: "طبقة المسارات", trackLayers: "فئات المسارات", layerHint: "تصفية وتحديد المسارات المرسومة", showLayers: "إظهار طبقة المسارات", hideLayers: "إخفاء طبقة المسارات", expandLayers: "توسيع مفتاح فئات المسارات", collapseLayers: "طي مفتاح فئات المسارات", browseVerified: "فتح مستكشف المسارات الموثقة", mainTracks: "المسارات الرئيسية", mainTracksHint: "محاور البرنامج الأساسية — اختر مساراً للانتقال إليه", noMainTracks: "لا توجد مسارات برنامج رئيسية ضمن المرشحات الحالية.", municipalTracks: "المسارات البلدية التفصيلية", municipalHint: "سجلات هندسية تفصيلية من مصادر البلديات", finderHelp: "ابحث في السجلات البلدية الموثقة وانتقل إلى هندستها.", findTrack: "ابحث عن مسار بلدي أو موقع", clearSearch: "مسح البحث", noMatches: "لا توجد مسارات موثقة مطابقة للمرشحات الحالية.", moreMatches: "استخدم البحث لتضييق قائمة المسارات.", trackFootprint: "مساحة مسار", trackAlignment: "محاذاة مسار", reset: "إعادة ضبط نطاق المرشح", fullscreen: "ملء الشاشة", exitFullscreen: "الخروج من ملء الشاشة", view: "منظور الخريطة", zoomIn: "تكبير", zoomOut: "تصغير", updating: "جارٍ تحديد موقع المسار وتحميل الخريطة", noGeometry: "لا توجد هندسة مسارات مطابقة لهذه البلدية والفئة.", showAllClasses: "عرض كل الفئات", fallbackTitle: "تم تشغيل خريطة احتياطية", fallbackText: "تعذر تحميل بعض مربعات الخريطة الأساسية؛ تظل هندسة المسارات متاحة.", retry: "إعادة المحاولة"
+    streets: "الخريطة", satellite: "القمر الصناعي", layers: "طبقة المسارات", trackLayers: "فئات المسارات", layerHint: "طبقات البرنامج الحالية والمخزون البلدي",
+    currentProgramme: "برنامج أغسطس 2026 والمراجع", showAllProgramme: "عرض طبقات البرنامج كلها", scopeLayer: "نطاق البرنامج الحالي", completedLayer: "الهندسة المنفذة", wipLayer: "مسارات قيد التنفيذ", referenceLayer: "HSCT · محاذاة مرجعية 2022", referenceWarning: "محاذاة HSCT مأخوذة من أساس التصميم 2022 للمرجع فقط، وليست هندسة تنفيذ فعلي حالية.", packageMatchWarning: "هندسة التنفيذ للحزم 1-4 مجمعة؛ فصل الحزم يحتاج إلى مطابقة معتمدة.", municipalInventory: "المخزون البلدي الاختياري",
+    showLayers: "إظهار طبقة المسارات", hideLayers: "إخفاء طبقة المسارات", expandLayers: "توسيع مفتاح فئات المسارات", collapseLayers: "طي مفتاح فئات المسارات", browseVerified: "فتح مستكشف المسارات الموثقة", mainTracks: "هيكل مسارات البرنامج", mainTracksHint: "اختر مساراً لعرض بياناته المتاحة وحالة المصدر", currentSourceGap: "يتطلب تحديث المصدر الحالي", noMainTracks: "لا توجد مسارات برنامج رئيسية ضمن المرشحات الحالية.", municipalTracks: "المسارات البلدية التفصيلية", municipalHint: "سجلات هندسية تفصيلية من مصادر البلديات", finderHelp: "ابحث في السجلات البلدية الموثقة وانتقل إلى هندستها.", findTrack: "ابحث عن مسار بلدي أو موقع", clearSearch: "مسح البحث", noMatches: "لا توجد مسارات موثقة مطابقة للمرشحات الحالية.", moreMatches: "استخدم البحث لتضييق قائمة المسارات.", trackFootprint: "مساحة مسار", trackAlignment: "محاذاة مسار", reset: "إعادة ضبط نطاق المرشح", fullscreen: "ملء الشاشة", exitFullscreen: "الخروج من ملء الشاشة", view: "منظور الخريطة", zoomIn: "تكبير", zoomOut: "تصغير", updating: "جارٍ تحديد موقع المسار وتحميل الخريطة", noGeometry: "لا توجد هندسة مسارات مطابقة لهذه البلدية والفئة.", showAllClasses: "عرض كل الفئات", fallbackTitle: "تم تشغيل خريطة احتياطية", fallbackText: "تعذر تحميل بعض مربعات الخريطة الأساسية؛ تظل هندسة المسارات متاحة.", retry: "إعادة المحاولة"
   } : {
-    streets: "Streets", satellite: "Satellite", layers: "Track layer", trackLayers: "Track layers", layerHint: "Filter and locate mapped tracks", showLayers: "Show track layers", hideLayers: "Hide track layers", expandLayers: "Expand track-layer legend", collapseLayers: "Collapse track-layer legend", browseVerified: "Open verified-track explorer", mainTracks: "Main programme tracks", mainTracksHint: "Primary programme alignments — select a track to fly to it", noMainTracks: "No main programme tracks match the current filters.", municipalTracks: "Detailed municipal tracks", municipalHint: "Source geometry records supplied by the municipalities", finderHelp: "Search verified municipal records and fly to their source geometry.", findTrack: "Search municipal track or place", clearSearch: "Clear track search", noMatches: "No verified tracks match the current filters.", moreMatches: "Use search to narrow the track list.", trackFootprint: "Track footprint", trackAlignment: "Track alignment", reset: "Reset to filtered extent", fullscreen: "Fullscreen", exitFullscreen: "Exit fullscreen", view: "Map perspective", zoomIn: "Zoom in", zoomOut: "Zoom out", updating: "Locating track and loading map context", noGeometry: "No mapped track geometry matches this municipality and class.", showAllClasses: "Show all classes", fallbackTitle: "Fallback map active", fallbackText: "Some primary basemap tiles could not load; track geometry remains available.", retry: "Retry"
+    streets: "Streets", satellite: "Satellite", layers: "Track layer", trackLayers: "Track layers", layerHint: "Current programme, historical reference, and optional municipal inventory",
+    currentProgramme: "August 2026 programme & references", showAllProgramme: "Show all programme layers", scopeLayer: "Current programme scope", completedLayer: "Completed as-built geometry", wipLayer: "Routes with work in progress", referenceLayer: "HSCT · 2022 reference alignment", referenceWarning: "The HSCT alignment comes from the 2022 Basis of Design for reference only; it is not current As-Built geometry.", packageMatchWarning: "Packages 1-4 as-built geometry is aggregated; the package split requires an approved crosswalk.", municipalInventory: "Optional municipal inventory",
+    showLayers: "Show track layers", hideLayers: "Hide track layers", expandLayers: "Expand track-layer legend", collapseLayers: "Collapse track-layer legend", browseVerified: "Open verified-track explorer", mainTracks: "Programme route structure", mainTracksHint: "Select a route to inspect its available data and source status", currentSourceGap: "Requires current source update", noMainTracks: "No main programme tracks match the current filters.", municipalTracks: "Detailed municipal tracks", municipalHint: "Source geometry records supplied by the municipalities", finderHelp: "Search verified municipal records and fly to their source geometry.", findTrack: "Search municipal track or place", clearSearch: "Clear track search", noMatches: "No verified tracks match the current filters.", moreMatches: "Use search to narrow the track list.", trackFootprint: "Track footprint", trackAlignment: "Track alignment", reset: "Reset to filtered extent", fullscreen: "Fullscreen", exitFullscreen: "Exit fullscreen", view: "Map perspective", zoomIn: "Zoom in", zoomOut: "Zoom out", updating: "Locating track and loading map context", noGeometry: "No mapped track geometry matches this municipality and class.", showAllClasses: "Show all classes", fallbackTitle: "Fallback map active", fallbackText: "Some primary basemap tiles could not load; track geometry remains available.", retry: "Retry"
   };
   const classLabels = Object.fromEntries(inventoryClasses.map((value) => [value, inventoryClassLabel(value, locale)])) as Record<InventoryClass, string>;
   const selectLayerClass = (value: InventoryClass) => {
@@ -754,10 +862,18 @@ export function InventoryMap({
     onSelect(null);
     onSelectProgramme?.(route.id);
   };
-  const mainTrackProgress = (route: NetworkRoute) => route.plannedKm > 0 ? Math.round((route.completedKm / route.plannedKm) * 100) : 0;
+  const mainTrackProgress = (route: NetworkRoute) => route.progressPct;
+  const allProgrammeLayersVisible = scopeVisible && completedVisible && wipVisible && referenceVisible;
+  const setAllProgrammeLayers = () => {
+    const next = !allProgrammeLayersVisible;
+    setScopeVisible(next);
+    setCompletedVisible(next);
+    setWipVisible(next);
+    setReferenceVisible(next);
+  };
 
   return (
-    <div className="inventory-map" ref={frameRef} data-lenis-prevent data-theme={theme} data-region={region} data-feature-class={featureClass} data-filtered-count={filtered.length} data-programme-count={programmeRoutes.length} data-main-track-count={mainRoutes.length} data-layers-visible={layersVisible} data-selection-focus={selectedProgrammeId ? "programme" : selectedId ? "inventory" : "none"} data-basemap={basemap} data-basemap-health={basemapFallback ? "fallback" : "primary"} data-map-busy={mapBusy} data-view-mode={viewMode} data-zoom={zoomLevel.toFixed(2)} data-center={`${cameraCenter[0].toFixed(4)},${cameraCenter[1].toFixed(4)}`} data-fullscreen={fullscreen} data-render-mode="source-geometry">
+      <div className="inventory-map" ref={frameRef} data-lenis-prevent data-theme={theme} data-region={region} data-feature-class={featureClass} data-filtered-count={filtered.length} data-programme-count={programmeRoutes.length} data-main-track-count={mainRoutes.length} data-asbuilt-feature-count={asBuilt?.features.length ?? 0} data-layers-visible={layersVisible} data-programme-scope-visible={scopeVisible} data-reference-visible={referenceVisible} data-asbuilt-visible={completedVisible} data-wip-visible={wipVisible} data-selection-focus={selectedProgrammeId ? "programme" : selectedId ? "inventory" : "none"} data-basemap={basemap} data-basemap-health={basemapFallback ? "fallback" : "primary"} data-map-busy={mapBusy} data-view-mode={viewMode} data-zoom={zoomLevel.toFixed(2)} data-center={`${cameraCenter[0].toFixed(4)},${cameraCenter[1].toFixed(4)}`} data-fullscreen={fullscreen} data-render-mode="source-geometry">
       <div ref={containerRef} className="inventory-map-canvas" />
       {!loaded ? <div className="inventory-map-loading"><span /><b>{locale === "ar" ? "جارٍ تحميل بيانات المسارات" : "Loading track inventory"}</b></div> : null}
       {loaded && mapBusy ? <div className="inventory-map-transition" role="status" aria-live="polite"><span /><b>{labels.updating}</b></div> : null}
@@ -784,6 +900,17 @@ export function InventoryMap({
           <span><Layers3 /><span><strong>{labels.trackLayers}</strong><small>{labels.layerHint}</small></span></span>
           <i className={layersVisible ? "is-visible" : ""}>{layersVisible ? (locale === "ar" ? "ظاهرة" : "Visible") : (locale === "ar" ? "مخفية" : "Hidden")}</i>
         </header>
+        <div className="inventory-programme-layers" aria-label={labels.currentProgramme}>
+          <strong>{labels.currentProgramme}</strong>
+          <button type="button" className={allProgrammeLayersVisible ? "is-active" : ""} onClick={setAllProgrammeLayers} aria-pressed={allProgrammeLayersVisible}><Layers3 /><span>{labels.showAllProgramme}</span><i>{allProgrammeLayersVisible ? <Check /> : null}</i></button>
+          <button type="button" className={scopeVisible ? "is-active" : ""} onClick={() => setScopeVisible((value) => !value)} aria-pressed={scopeVisible}><span className="programme-layer-swatch is-scope" /><span>{labels.scopeLayer}</span><i>{scopeVisible ? <Check /> : null}</i></button>
+          <button type="button" className={completedVisible ? "is-active" : ""} onClick={() => setCompletedVisible((value) => !value)} aria-pressed={completedVisible}><span className="programme-layer-swatch is-completed" /><span>{labels.completedLayer}</span><i>{completedVisible ? <Check /> : null}</i></button>
+          <button type="button" className={wipVisible ? "is-active" : ""} onClick={() => setWipVisible((value) => !value)} aria-pressed={wipVisible}><span className="programme-layer-swatch is-wip" /><span>{labels.wipLayer}</span><i>{wipVisible ? <Check /> : null}</i></button>
+          <button type="button" className={referenceVisible ? "is-active" : ""} onClick={() => setReferenceVisible((value) => !value)} aria-pressed={referenceVisible}><span className="programme-layer-swatch is-reference" /><span>{labels.referenceLayer}</span><i>{referenceVisible ? <Check /> : null}</i></button>
+          <small className="inventory-reference-warning">{labels.referenceWarning}</small>
+          <small>{labels.packageMatchWarning}</small>
+        </div>
+        <div className="inventory-layer-subheading"><strong>{labels.municipalInventory}</strong><button type="button" onClick={() => setLayersVisible((value) => !value)} aria-pressed={layersVisible}>{layersVisible ? (locale === "ar" ? "إخفاء" : "Hide") : (locale === "ar" ? "إظهار" : "Show")}</button></div>
         <div className="inventory-layer-options">
           {inventoryClasses.map((value) => {
             const selected = featureClass === value;
@@ -805,9 +932,9 @@ export function InventoryMap({
                     const selectedTrack = selectedProgrammeId === route.id;
                     return <button key={route.id} className={selectedTrack ? "is-selected" : ""} onClick={() => locateMainTrack(route)} aria-pressed={selectedTrack} data-main-track-id={route.id}>
                       <i style={{ background: route.color }} />
-                      <span><strong>{routeLabel(route, locale)}</strong><small>{statusText[locale][route.status]}</small></span>
-                      <em>{mainTrackProgress(route)}%</em>
-                      <MapPin />
+                      <span><strong>{routeLabel(route, locale)}</strong><small>{route.currentSourceGap ? labels.currentSourceGap : statusText[locale][route.status]}</small></span>
+                      <em>{route.currentSourceGap ? (locale === "ar" ? "فجوة مصدر" : "Source gap") : `${mainTrackProgress(route)}%`}</em>
+                      {route.currentSourceGap ? <AlertTriangle /> : <MapPin />}
                     </button>;
                   })}
                   {!mainRoutes.length ? <span className="inventory-verified-empty">{labels.noMainTracks}</span> : null}
@@ -848,7 +975,8 @@ export function InventoryMap({
         <button onClick={toggleFullscreen} title={fullscreen ? labels.exitFullscreen : labels.fullscreen} aria-label={fullscreen ? labels.exitFullscreen : labels.fullscreen}>{fullscreen ? <Minimize /> : <Expand />}</button>
       </div>
       <div className="inventory-map-legend">
-        {programmeRoutes.length && programmeVisible ? <span className="inventory-programme-key"><i />{locale === "ar" ? "محاذاة البرنامج المرجعية" : "Programme reference alignments"}</span> : null}
+        {programmeRoutes.length && programmeVisible ? <span className="inventory-programme-key"><i />{locale === "ar" ? "طبقات البرنامج" : "Programme layers"}</span> : null}
+        {referenceVisible && programmeRoutes.some((route) => route.currentSourceGap) && programmeVisible ? <span className="inventory-hsct-reference-key"><i />{locale === "ar" ? "HSCT · مرجع 2022" : "HSCT · 2022 reference"}</span> : null}
         {(["ADM", "AAM", "DRM"] as const).map((code) => <span key={code}><i style={{ background: regionColors[code] }} />{locale === "ar" ? regionLabel(code, locale) : code}</span>)}
         <em>{locale === "ar" ? "هندسة بلدية موثقة" : "Source-qualified municipal geometry"}</em>
       </div>
