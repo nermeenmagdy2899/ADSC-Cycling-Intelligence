@@ -1,23 +1,17 @@
-/**
- * Exhaustive data-layer QA for the Network/GIS region × class filter matrix.
- *
- * It checks every feature against all 16 filter combinations and confirms that
- * each regional "all mapped classes" result is the exact union of its three
- * specific classes, including every verified cycle-track ID.
- */
+/** Exhaustive data/UI QA for the cycling-only executive map and filters. */
 
 import { readFile } from "node:fs/promises";
 
 const regions = ["all", "ADM", "AAM", "DRM"];
-const classes = ["all", "Cycle track", "Active-mobility path", "Unclassified track polygon"];
 const inventory = JSON.parse(await readFile(new URL("../public/data/cycling-inventory.geojson", import.meta.url), "utf8"));
 const dashboardSource = await readFile(new URL("../src/components/CyclingDashboard.tsx", import.meta.url), "utf8");
+const mapSource = await readFile(new URL("../src/components/InventoryMap.tsx", import.meta.url), "utf8");
 const characteristicFields = ["condition"];
 const retiredFilters = [
-  { stateKey: "materialFilter", field: "material", populated: 1825 },
-  { stateKey: "lightingFilter", field: "lighting", populated: 230 },
-  { stateKey: "shadingFilter", field: "shading", populated: 230 },
-  { stateKey: "plantingFilter", field: "planting", populated: 180 }
+  { stateKey: "materialFilter", field: "material", populated: 467 },
+  { stateKey: "lightingFilter", field: "lighting", populated: 223 },
+  { stateKey: "shadingFilter", field: "shading", populated: 223 },
+  { stateKey: "plantingFilter", field: "planting", populated: 173 }
 ];
 const widthBands = ["all", "under-2.5", "2.5-3.49", "3.5-4.49", "4.5-plus"];
 
@@ -25,16 +19,16 @@ function isDecisionFacing(feature) {
   const properties = feature.properties;
   const genericName = String(properties.name ?? "").trim().toLowerCase() === "cycling";
   const polygon = feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon";
-  return !(properties.municipality === "ADM"
+  const genericAdmFragment = properties.municipality === "ADM"
     && properties.featureClass === "Cycle track"
     && genericName
-    && polygon);
+    && polygon;
+  return properties.featureClass === "Cycle track" && !genericAdmFragment;
 }
 
-function matches(feature, region, featureClass) {
+function matches(feature, region) {
   const properties = feature.properties;
-  return (region === "all" || properties.municipality === region)
-    && (featureClass === "all" || properties.featureClass === featureClass);
+  return region === "all" || properties.municipality === region;
 }
 
 function assert(condition, message) {
@@ -50,27 +44,32 @@ function matchesWidth(width, band) {
     || (band === "4.5-plus" && width >= 4.5);
 }
 
-const excludedFragments = inventory.features.filter((feature) => !isDecisionFacing(feature));
+const genericFragments = inventory.features.filter((feature) => {
+  const properties = feature.properties;
+  return properties.municipality === "ADM"
+    && properties.featureClass === "Cycle track"
+    && String(properties.name ?? "").trim().toLowerCase() === "cycling"
+    && (feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon");
+});
+const nonCyclingFeatures = inventory.features.filter((feature) => feature.properties.featureClass !== "Cycle track");
 const features = inventory.features.filter(isDecisionFacing);
-assert(excludedFragments.length === 220, `Expected 220 generic Cycling polygons, found ${excludedFragments.length}`);
-assert(excludedFragments.every((feature) => feature.properties.name.trim().toLowerCase() === "cycling" && feature.geometry.type === "Polygon"), "Excluded inventory contains an identifiable track");
+assert(genericFragments.length === 220, `Expected 220 generic Cycling polygons, found ${genericFragments.length}`);
+assert(nonCyclingFeatures.length === 2390, `Expected 2,390 retained non-cycling source features, found ${nonCyclingFeatures.length}`);
+assert(features.length === 475, `Expected 475 decision-facing cycle tracks, found ${features.length}`);
 assert(features.every((feature) => feature.properties.name.trim().toLowerCase() !== "cycling"), "Generic Cycling polygon leaked into decision-facing inventory");
+assert(features.every((feature) => feature.properties.featureClass === "Cycle track"), "Non-cycling feature leaked into the executive collection");
 
 const ids = new Set();
 let featureChecks = 0;
 for (const feature of features) {
-  const { id, municipality, featureClass } = feature.properties;
+  const { id, municipality } = feature.properties;
   assert(!ids.has(id), `Duplicate feature ID: ${id}`);
   ids.add(id);
   assert(regions.includes(municipality), `${id}: invalid municipality ${municipality}`);
-  assert(classes.includes(featureClass), `${id}: invalid feature class ${featureClass}`);
   for (const region of regions) {
-    for (const category of classes) {
-      const expected = (region === "all" || municipality === region)
-        && (category === "all" || featureClass === category);
-      assert(matches(feature, region, category) === expected, `${id}: filter mismatch for ${region}/${category}`);
-      featureChecks += 1;
-    }
+    const expected = region === "all" || municipality === region;
+    assert(matches(feature, region) === expected, `${id}: region filter mismatch for ${region}`);
+    featureChecks += 1;
   }
 }
 
@@ -85,15 +84,15 @@ for (const { stateKey, field, populated } of retiredFilters) {
 }
 
 for (const region of regions) {
-  const all = features.filter((feature) => matches(feature, region, "all"));
-  const specific = classes.slice(1).flatMap((category) => features.filter((feature) => matches(feature, region, category)));
-  const allIds = new Set(all.map((feature) => feature.properties.id));
-  const specificIds = new Set(specific.map((feature) => feature.properties.id));
-  const cycles = features.filter((feature) => matches(feature, region, "Cycle track"));
-  assert(allIds.size === specificIds.size, `${region}: all mapped classes is not the union of specific classes`);
-  for (const id of specificIds) assert(allIds.has(id), `${region}: all mapped classes omits ${id}`);
-  for (const feature of cycles) assert(allIds.has(feature.properties.id), `${region}: verified cycle track missing from all mapped classes`);
-  console.log(`${region}: ${allIds.size} all / ${cycles.length} verified cycle tracks`);
+  const cycles = features.filter((feature) => matches(feature, region));
+  const expected = { all: 475, ADM: 142, AAM: 8, DRM: 325 }[region];
+  assert(cycles.length === expected, `${region}: expected ${expected} cycling tracks, found ${cycles.length}`);
+  console.log(`${region}: ${cycles.length} verified cycling tracks`);
+}
+
+const executiveSource = `${dashboardSource}\n${mapSource}`;
+for (const forbidden of ["Other paths / walkways", "Unclassified track polygons", "Municipal inventory", "Sources & methodology", "Source details & comparison boundaries"]) {
+  assert(!executiveSource.includes(forbidden), `Removed executive content remains in UI source: ${forbidden}`);
 }
 
 let characteristicChecks = 0;
@@ -118,7 +117,8 @@ for (const feature of features) {
   assert(matches === (feature.properties.widthM == null ? 1 : 2), `${feature.properties.id}: width bands overlap or omit a value`);
 }
 
-console.log(`PASS: ${features.length} decision-facing features, ${featureChecks.toLocaleString()} feature-filter checks, 16 region × class combinations.`);
-console.log(`PASS: ${excludedFragments.length} generic ADM Cycling polygons retained in the raw source and excluded from the dashboard map, lists, filters, and cards.`);
+console.log(`PASS: ${features.length} decision-facing cycling tracks and ${featureChecks.toLocaleString()} region-filter checks.`);
+console.log(`PASS: ${genericFragments.length} generic Cycling polygons and ${nonCyclingFeatures.length.toLocaleString()} non-cycling features remain in the raw source but are absent from the executive view.`);
 console.log(`PASS: ${characteristicChecks.toLocaleString()} active condition and width filter checks.`);
 console.log("PASS: material, lighting, shading, and planting remain source attributes but are absent from executive filter state and UI.");
+console.log("PASS: methodology disclosures and all named non-cycling classes are absent from executive UI source.");

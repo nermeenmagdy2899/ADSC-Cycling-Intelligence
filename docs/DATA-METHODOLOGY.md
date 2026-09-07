@@ -40,19 +40,19 @@ HSCT remains a valid route in the programme structure. It is not reported in the
 The dashboard stores all active filters in one state object, then projects that state into source-qualified analytical domains:
 
 - **Programme:** region, route, package, delivery status, contractor, and forecast update programme KPIs, route layers, route details, delivery progress, and executive attention. The unfiltered All Regions and Abu Dhabi views both retain the authoritative August 2026 headline.
-- **Municipal inventory:** region, mapped class, condition, and width update municipal map geometry, the searchable inventory list, and network-characteristic summaries.
+- **Cycling-track characteristics:** region, condition, and width update the explicitly classified cycling geometry, searchable cycling-track list, and cycling-characteristic summaries.
 - **Budget:** region, route, and package filter the December 2025 contract references only when an explicit route-to-contract mapping exists. Delivery status and municipal characteristics never filter budget values. Programme-wide approved, required, and gap values are not allocated to routes.
 
 No route-to-inventory crosswalk exists in the supplied sources. Route, package, and delivery filters therefore do not recalculate municipal characteristics; characteristic filters do not recalculate programme delivery. The interface states this relationship boundary wherever an active filter is intentionally not propagated.
 
 ### Removed executive filters
 
-Material, lighting, shading, and planting remain preserved as source attributes and are shown in selected-track details where recorded, but they are not presented as executive filters. A feature-level audit of the 2,865 decision-facing municipal geometries found:
+Material, lighting, shading, and planting remain preserved as source attributes and are shown in selected-track details where recorded, but they are not presented as executive filters. A feature-level audit of the 475 decision-facing cycling tracks found:
 
-- Material is populated for 1,825 features (63.7%) overall, but for 0 of 38 Al Ain features; the wider inventory also contains non-normalized spellings and categories.
-- Lighting is populated for 230 features (8.0%) overall and for 0 of 38 Al Ain features.
-- Shading is populated for 230 features (8.0%) overall and for 0 of 38 Al Ain features.
-- Planting is populated for 180 features (6.3%) overall and for 0 of 38 Al Ain features.
+- Material is populated for 467 tracks (98.3%) overall, but for 0 of 8 Al Ain cycling tracks; the wider retained source also contains non-normalized spellings and categories.
+- Lighting is populated for 223 tracks (46.9%) overall and for 0 of 8 Al Ain cycling tracks.
+- Shading is populated for 223 tracks (46.9%) overall and for 0 of 8 Al Ain cycling tracks.
+- Planting is populated for 173 tracks (36.4%) overall and for 0 of 8 Al Ain cycling tracks.
 
 None of the four attributes exists on the August 2026 programme-route source, and no source-backed route-to-inventory crosswalk is available. Keeping them as global filters would therefore imply a relationship that the supplied evidence does not support.
 
@@ -78,7 +78,7 @@ The reproducible conversion script is `scripts/build_inventory.py`. It:
 - retains source-defined geometry and selected characteristic fields;
 - writes `public/data/cycling-inventory.geojson` and `public/data/cycling-inventory-summary.json`.
 
-The ADM source also contains 220 generic cycle-track polygons named only `Cycling`. They remain in the raw GeoJSON for auditability but are excluded from the executive map, track lists, global-filter counts, and supporting cards because they are polygon fragments rather than identifiable tracks.
+The executive dashboard surfaces only the 475 features explicitly classified as cycle tracks and excludes 2,390 pedestrian, active-mobility, and unclassified features. The ADM source also contains 220 generic cycle-track polygons named only `Cycling`; these are excluded because they are polygon fragments rather than identifiable tracks. All excluded geometry remains in the raw GeoJSON for auditability and future reconciliation.
 
 ### Abu Dhabi / ADM
 
